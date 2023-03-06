@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>前端项目发布系统</title>
+    <script src="./js/react.development.js" crossorigin></script>
+    <script src="./js/react-dom.development.js" crossorigin></script>
+    <script src="./js/babel.min.js"></script>
+    <script src="./js/antd.min.js" integrity="sha512-2JTy1+27IRQsZD9VBoKxZpW3oNUPw0aoZQnAEFEQASX+7UCrkSn9TZvmSCL6YYtD60Nz8Gwhfd6CoBAtxEK6Rg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="./js/axios.min.js"></script>
+    <link rel="stylesheet" href="./css/antd.min.css" integrity="sha512-GAGiLSTnFfOCoktRDfKPm0Feeq9V/CiqKE7JBalI9Rm6xSVvR1f7z2I4orY8LtW5IpihMWF25Cz3YZSLoCHpKw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style type="text/css">
+        body {
+            padding: 0;
+            margin: 0;
+            background-color: #f2f2f2;
+            position: relative;
+        }
+        #root {
+            position: absolute;
+            background-color: #fff;
+            width: 60%;
+            height: 500px;
+            left: 50%;
+            top: -50px;
+            transform: translate(-50%, 50%);
+        }
+        .container {
+            position: relative;
+            height: 100%;
+        }
+        .header-div {
+            position: absolute;
+            text-align: center;
+            top: 10px;
+            left: 50px;
+            right: 50px;
+        }
+        .header-div h2 {
+            width: 200px;
+            margin: 0 auto;
+        }
+        .header-div span {
+            font-size: 2px;
+            color: brown;
+        }
+
+        .main-div {
+            position: absolute;
+            top: 90px;
+            left: 50px;
+            bottom: 50px;
+            right: 50px;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel" >
+        
+        // 项目发布组件
+        function ProjectRelease() {
+            const {Select, Upload, Form, Button,Radio, message} = antd
+            const { useState, useEffect } = React
+            const [fileList, setFileList] = useState([]) // 上传文件列表
+            const [uploading, setUploading] = useState(false) // 正在上传状态
+            const [valueType, setValueType] = useState(1) // 上传项目类型
+            const [valueTypeList, setValueTypeList] = useState([])
+            const dictMap = {
+                1: [
+                    { key: 1, name: 'PC'},
+                ],
+                2: [
+                    { key: 1, name: 'PC'},
+                    { key: 2, name: 'APP' }
+                ]
+            }
+            const [form] = Form.useForm()
+
+            // 请求头封装
+            const request = () => {
+                const service = axios.create({
+                    baseURL: 'http://127.0.0.1:8002',
+                    timeout: 1000,
+                    // headers: {'x-auth-token': 'token2022011250014'}
+                })
+                return service
+            }
+
+            // 上传文件
+            const uploadFile = (fileList,data) => {
+                const formData = new FormData()
+                formData.append('file',fileList[0].originFileObj)
+                formData.append('projectId',data.projectId)
+                setUploading(true)
+                const service = request()
+                service({
+                    method: 'post',
+                    url: 'uploadFile',
+                    data: formData,
+                    headers: {
+                        'content-type': 'application/x-www-form-urlencoded'
+                    }
+                }).then(res=>{
+                    console.log('res', res)
+                    form.setFieldValue('projectId', '')
+                    setFileList([])
+                    message.success('发布成功')
+                }).catch(err=>{
+                    console.error('服务器异常', err)
+                }).finally(()=>{
+                    setUploading(false)
+                })
+            }
+
+            // 表单提交操作
+            const onFinish = (data) => {
+                if (!fileList.length) {
+                    message.error('请先上传文件')
+                    return
+                }
+                uploadFile(fileList, {projectId: data.projectId})
+            }
+
+            // 上传之前
+            const beforeUpload = (file) =>{
+                setFileList([...fileList, file]);
+                return false;
+            }
+
+            //  移除文件
+            const onRemove = (file) => {
+                const index = fileList.indexOf(file);
+                const newFileList = fileList.slice();
+                newFileList.splice(index, 1);
+                setFileList([...newFileList])
+            }
+
+            // 文件有变化时
+            const onChange = (file) =>{
+                setFileList(file.fileList)
+            }
+
+            // 选择项目后的回调
+            const handleProjectChange = (value) => {
+                console.log(`selected ${value}`, dictMap[value]);
+                // const arrNew = []
+                // dictMap[value].forEach(dict=>{
+                //     arrNew.push(dict)
+                // })
+                // setValueTypeList(arrNew)
+            }
+
+            // 项目类型变化
+            const onTypeChange = (e) => {
+                console.log('onTypeChange', e.target.value)
+                setValueType(e.target.value)
+            }
+
+            return (
+                <div className="container">
+                    <div className='header-div'>
+                        <h2>前端项目发布系统</h2>
+                        <span>本项目针对无法自动发布的项目而开发,步骤一:选择需要发布的项目, 步骤二:上传项目文件,步骤三:点击发布</span>
+                    </div>
+                    <div className="main-div">
+                            <Form
+                                labelCol={{
+                                    span: 4,
+                                }}
+                                wrapperCol={{
+                                    span: 8,
+                                }}
+                                form={form}
+                                layout="horizontal"
+                                onFinish={onFinish}
+                            >
+                                <Form.Item label="项目名称" 
+                                    name="projectId"
+                                    placeholder="sdd"
+                                    rules={[
+                                        {
+                                            required: true,
+                                            message: '请选择项目',
+                                        },
+                                    ]}>
+                                    <Select allowClear placeholder="请选择项目" onChange={handleProjectChange}>
+                                        <Select.Option value="1">工程建管平台</Select.Option>
+                                        <Select.Option value="2">城盾隧安日常管控平台</Select.Option>
+                                    </Select>
+                                </Form.Item>
+
+                                <Form.Item label="项目类型">
+                                    <Radio.Group onChange={onTypeChange} value={valueType}>
+                                        {
+                                            valueTypeList.map(valueObj=>{
+                                                console.log('valueObj', valueObj)
+                                                // <Radio value={valueObj.key}>{valueObj.name}</Radio>
+                                            })
+                                        }
+                                    </Radio.Group>
+                                </Form.Item>
+
+                                <Form.Item label="项目文件" 
+                                    valuePropName="fileList"
+                                    >
+                                    <Upload
+                                        fileList={fileList}
+                                        beforeUpload={beforeUpload} 
+                                        onRemove={onRemove}
+                                        onChange={onChange}
+                                        maxCount={1}>
+                                        <Button>点击选择</Button>
+                                    </Upload>
+                                </Form.Item>
+                                <Form.Item label="发布">
+                                    <Button
+                                        disabled={fileList.length === 0}
+                                        type="primary" 
+                                        htmlType="submit" 
+                                        loading={uploading}>
+                                        {uploading ? '正在上传' : '提交'}
+                                    </Button>
+                                </Form.Item>
+                            </Form>
+                    </div>
+                </div>
+            )
+        }
+        
+        ReactDOM.render(<ProjectRelease/>, document.getElementById('root'))
+    </script>
+</body>
+</html>

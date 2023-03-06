@@ -1,0 +1,6 @@
+#!/bin/bash
+# 源文件路径
+srcFile=$1
+# 目标文件路径
+targetFile=$2
+echo "源文件路径:$srcFile, 目标文件路径:$targetFile"
