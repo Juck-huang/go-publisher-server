@@ -4,7 +4,7 @@
 tempName=$1
 # 上传的文件名
 uploadFileName=$2
-projectName=cdsa-view
+projectName=hgsq-view
 
 # 上传的文件路径
 srcFilePath=$(pwd)/temp/$tempName
@@ -41,7 +41,7 @@ fi
 cd "$srcFilePath" &&
 # 如果项目目录存在则需要复制源配置文件
 if [ -e "${targetFilePath}/${projectName}" ];then
-  \cp "${targetFilePath}"/${projectName}/config.json dist/config.json
+  \cp "${targetFilePath}"/${projectName}/static/config.json dist/static/config.json
   if [ $? -ne 0 ]; then
     echo "打包失败"
     exit 255
