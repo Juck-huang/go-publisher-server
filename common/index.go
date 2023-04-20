@@ -24,7 +24,6 @@ func ExecCommand(isPip bool, command ...string) (string, error) {
 	var msg string
 	if isPip {
 		stdout, err := cmd.StdoutPipe()
-		defer stdout.Close()
 		if err != nil {
 			msg = "执行命令失败"
 			return msg, err
@@ -39,6 +38,7 @@ func ExecCommand(isPip bool, command ...string) (string, error) {
 			msg = "执行命令失败"
 			return msg, err
 		}
+		defer stdout.Close()
 		splitBytes := strings.Split(string(outBytes), "\n")
 		if len(splitBytes) > 1 {
 			return splitBytes[len(splitBytes)-2], nil

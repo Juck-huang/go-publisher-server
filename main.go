@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	"path"
+	"strings"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	uuid "github.com/satori/go.uuid"
 	"hy.juck.com/go-publisher-server/common"
-	"net/http"
-	"path"
-	"strings"
 )
 
 func main() {
@@ -21,10 +22,12 @@ func main() {
 	router.StaticFile("manifest.json", path.Join("templates", "manifest.json"))
 	router.StaticFile("logo192.png", path.Join("templates", "logo192.png"))
 	router.POST("/publishProject", func(c *gin.Context) {
+		var err error // 定义一个全局错误
 		projectId, _ := c.GetPostForm("projectId")
 		publishType, _ := c.GetPostForm("type")
 		var projectIdList = []string{"1", "2"} // 项目id列表
 		var typeList = []string{"app", "pc"}   // 类型列表
+		// 判断是否是存在的项目
 		isExistProject := common.EleIsExistSlice(projectId, projectIdList)
 		if !isExistProject {
 			c.JSON(http.StatusOK, gin.H{
@@ -34,6 +37,7 @@ func main() {
 			})
 			return
 		}
+		// 判断存在类型
 		isExistType := common.EleIsExistSlice(publishType, typeList)
 		if !isExistType {
 			c.JSON(http.StatusOK, gin.H{
@@ -74,17 +78,7 @@ func main() {
 			})
 			return
 		}
-		defer func() {
-			_, err := common.ExecCommand(true, "-c", "rm -rf temp/"+tempFileName+" && echo '移除成功'")
-			if err != nil {
-				c.JSON(http.StatusOK, gin.H{
-					"code":    200,
-					"success": false,
-					"message": "项目发布失败,失败原因1:" + err.Error(),
-				})
-				return
-			}
-		}()
+
 		msg, err := common.ExecCommand(true, fmt.Sprintf("scripts/%s/%s/build", projectId, publishType), tempFileName, file.Filename)
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{
@@ -98,10 +92,21 @@ func main() {
 			c.JSON(http.StatusOK, gin.H{
 				"code":    200,
 				"success": false,
-				"message": "项目发布失败,具体原因:" + msg,
+				"message": "项目发布失败,具体原因3:" + msg,
 			})
 			return
 		}
+		defer func() {
+			_, err = common.ExecCommand(true, "-c", "rm -rf temp/"+tempFileName+" && echo '移除成功'")
+			if err != nil {
+				c.JSON(http.StatusOK, gin.H{
+					"code":    200,
+					"success": false,
+					"message": "项目发布失败,失败原因2:" + err.Error(),
+				})
+				return
+			}
+		}()
 
 		c.JSON(http.StatusOK, gin.H{
 			"code":    200,
