@@ -1,8 +1,13 @@
 package router
 
 import (
-	"errors"
 	"fmt"
+	"net/http"
+	"os"
+	"path"
+	"strings"
+	"time"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	uuid "github.com/satori/go.uuid"
@@ -13,11 +18,6 @@ import (
 	"hy.juck.com/go-publisher-server/middleware"
 	"hy.juck.com/go-publisher-server/service"
 	"hy.juck.com/go-publisher-server/utils"
-	"net/http"
-	"os"
-	"path"
-	"strings"
-	"time"
 )
 
 var (
@@ -183,10 +183,10 @@ func NewHttpRouter() {
 				"message": "项目发布成功",
 			})
 		})
-		// 导出或备份数据库
-		authGroup.POST("/database/export", func(c *gin.Context) {
-			var requestDto database.RequestDto
-			err := c.ShouldBindJSON(&requestDto)
+		// 导出或备份整个数据库
+		authGroup.POST("/database/total/export", func(c *gin.Context) {
+			var totalDto database.TotalDto
+			err := c.ShouldBindJSON(&totalDto)
 			if err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{
 					"code":    http.StatusBadRequest,
@@ -195,7 +195,7 @@ func NewHttpRouter() {
 				})
 				return
 			}
-			if requestDto.DbName == "" || requestDto.Status == 0 {
+			if totalDto.DbName == "" || totalDto.Type == 0 {
 				c.JSON(http.StatusOK, gin.H{
 					"code":    200,
 					"success": false,
@@ -204,7 +204,7 @@ func NewHttpRouter() {
 				return
 			}
 			// 需要先判断系统是否有安装mysqldump，有则继续，否则退出程序
-			var databaseService = service.NewDatabaseService(requestDto.DbName)
+			var databaseService = service.NewDatabaseService(totalDto.DbName)
 			err = databaseService.CheckMysqlDump()
 			if err != nil {
 				c.JSON(http.StatusOK, gin.H{
@@ -217,8 +217,8 @@ func NewHttpRouter() {
 			uuidStr := uuid.NewV4().String()
 			nowTime := time.Now().Format("20060102150405")
 			tempPathPrefix := "temp/" + uuidStr
-			tempPath := tempPathPrefix + "/" + requestDto.DbName + "-" + nowTime + ".sql"
-			err = os.MkdirAll(tempPathPrefix, 0644)
+			tempPath := tempPathPrefix + "/" + totalDto.DbName + "-" + nowTime + ".sql"
+			err = os.MkdirAll(tempPathPrefix, os.ModePerm)
 			defer os.RemoveAll(tempPathPrefix)
 			if err != nil {
 				c.JSON(http.StatusOK, gin.H{
@@ -228,10 +228,10 @@ func NewHttpRouter() {
 				})
 				return
 			}
-			switch requestDto.Status {
+			switch totalDto.Type {
 			case 1:
 				// 为1则是备份数据库，先存到临时目录，再复制到备份目录下
-				err = databaseService.HandleMysqlDump(tempPath, requestDto.IgnoreTables...)
+				err = databaseService.HandleTotalMysqlDump(tempPath, totalDto.IgnoreTables...)
 				if err != nil {
 					c.JSON(http.StatusOK, gin.H{
 						"code":    200,
@@ -240,7 +240,21 @@ func NewHttpRouter() {
 					})
 					return
 				}
-				err = databaseService.CopyFile(tempPath, G.C.DB.Mysql.BackUpPath)
+				// 备份路径=备份路径+年月日+备份的数据库文件
+				backPath := G.C.DB.Mysql.BackUpPath + "/" + time.Now().Format("20060102")
+				_, err := os.Stat(backPath)
+				if os.IsNotExist(err) {
+					if err = os.MkdirAll(backPath, os.ModePerm); err != nil {
+						G.Logger.Error("创建备份文件夹失败:", err.Error())
+						c.JSON(http.StatusOK, gin.H{
+							"code":    200,
+							"success": false,
+							"message": "备份或导出失败",
+						})
+						return
+					}
+				}
+				err = databaseService.CopyFile(tempPath, backPath)
 				if err != nil {
 					c.JSON(http.StatusOK, gin.H{
 						"code":    200,
@@ -256,7 +270,7 @@ func NewHttpRouter() {
 				})
 			case 2:
 				// 为1则是导出数据库，先存到临时目录，再从临时目录读取返回文件流
-				err = databaseService.HandleMysqlDump(tempPath, requestDto.IgnoreTables...)
+				err = databaseService.HandleTotalMysqlDump(tempPath, totalDto.IgnoreTables...)
 				if err != nil {
 					c.JSON(http.StatusOK, gin.H{
 						"code":    200,
@@ -265,14 +279,98 @@ func NewHttpRouter() {
 					})
 					return
 				}
-				c.FileAttachment(tempPath, requestDto.DbName+"-"+nowTime+".sql")
+				sqlFileName := totalDto.DbName + "-" + nowTime + ".sql"
+				zipFileName := totalDto.DbName + "-" + nowTime + ".zip"
+				zipTempFilePath := tempPathPrefix + "/" + zipFileName
+				// 压缩文件
+				err = databaseService.ZipFile(tempPathPrefix, sqlFileName, zipFileName)
+				if err != nil {
+					c.JSON(http.StatusOK, gin.H{
+						"code":    200,
+						"success": false,
+						"message": err.Error(),
+					})
+					return
+				}
+				c.FileAttachment(zipTempFilePath, zipFileName)
 			default:
 				c.JSON(http.StatusOK, gin.H{
 					"code":    200,
 					"success": false,
-					"message": errors.New("导出或备份数据库失败，失败原因：类型错误"),
+					"message": "导出或备份数据库失败，失败原因：类型错误",
 				})
+				return
 			}
+		})
+		// 单独导出某几个表
+		authGroup.POST("/database/simple/export", func(c *gin.Context) {
+			var simpleDto database.SimpleDto
+			err := c.BindJSON(&simpleDto)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code":    http.StatusBadRequest,
+					"success": false,
+					"message": "参数解析错误",
+				})
+				return
+			}
+			if simpleDto.DbName == "" || len(simpleDto.ExportTables) == 0 {
+				c.JSON(http.StatusOK, gin.H{
+					"code":    200,
+					"success": false,
+					"message": "参数缺失",
+				})
+				return
+			}
+			uuidStr := uuid.NewV4().String()
+			nowTime := time.Now().Format("20060102150405")
+			tempPathPrefix := "temp/" + uuidStr
+			tempPath := tempPathPrefix + "/" + simpleDto.DbName + "-" + nowTime + ".sql"
+			err = os.MkdirAll(tempPathPrefix, os.ModePerm)
+			defer os.RemoveAll(tempPathPrefix)
+			if err != nil {
+				c.JSON(http.StatusOK, gin.H{
+					"code":    200,
+					"success": false,
+					"message": err.Error(),
+				})
+				return
+			}
+			// 需要先判断系统是否有安装mysqldump，有则继续，否则退出程序
+			var databaseService = service.NewDatabaseService(simpleDto.DbName)
+			err = databaseService.CheckMysqlDump()
+			if err != nil {
+				c.JSON(http.StatusOK, gin.H{
+					"code":    200,
+					"success": false,
+					"message": err.Error(),
+				})
+				return
+			}
+			// 导出表
+			err = databaseService.SimpleExportTables(tempPath, simpleDto.ExportTables...)
+			if err != nil {
+				c.JSON(http.StatusOK, gin.H{
+					"code":    200,
+					"success": false,
+					"message": err.Error(),
+				})
+				return
+			}
+			sqlFileName := simpleDto.DbName + "-" + nowTime + ".sql"
+			zipFileName := simpleDto.DbName + "-" + nowTime + ".zip"
+			zipTempFilePath := tempPathPrefix + "/" + zipFileName
+			// 压缩文件
+			err = databaseService.ZipFile(tempPathPrefix, sqlFileName, zipFileName)
+			if err != nil {
+				c.JSON(http.StatusOK, gin.H{
+					"code":    200,
+					"success": false,
+					"message": err.Error(),
+				})
+				return
+			}
+			c.FileAttachment(zipTempFilePath, zipFileName)
 		})
 	}
 
