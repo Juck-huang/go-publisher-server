@@ -1,0 +1,24 @@
+
+server:
+  port: 8002
+
+db:
+  sqlite3: # 本地的sqlite数据库
+    path: db/server.db  # 数据库路径
+  mysql:
+    host: 172.168.20.157 # 数据库地址
+    port: 3306  # 数据库端口
+    username: root
+    password: cjxx2022
+    backUpPath: /root/sql_bak/temp
+
+# zap日志
+zap:
+  filename: logs/publisher.log
+  maxsize: 1
+  max-backups: 5
+  max-age: 30
+  compress:  true
+  mode: dev
+  level: info
+

@@ -1,7 +1,9 @@
 .idea/
-go-publisher.tar.gz
 go-publisher/
 go-publisher.tar.gz
 temp/*
-project-home/
-.vscode/
+project-home/*
+.vscode/*
+scripts/.DS_Store
+templates/.DS_Store
+.DS_Store
