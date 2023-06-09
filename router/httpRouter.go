@@ -348,7 +348,7 @@ func NewHttpRouter() {
 				return
 			}
 			// 导出表
-			err = databaseService.SimpleExportTables(tempPath, singleDto.ExportTables...)
+			err = databaseService.SingleExportTables(tempPath, singleDto.ExportTables...)
 			if err != nil {
 				c.JSON(http.StatusOK, gin.H{
 					"code":    200,
@@ -404,7 +404,7 @@ func NewHttpRouter() {
 				return
 			}
 			// 动态执行sql
-			err = databaseService.DynamicExecSql(dynamicExecDto.Sql)
+			resultList, err := databaseService.DynamicExecSql(dynamicExecDto.Sql)
 			if err != nil {
 				c.JSON(http.StatusOK, gin.H{
 					"code":    200,
@@ -416,7 +416,8 @@ func NewHttpRouter() {
 			c.JSON(http.StatusOK, gin.H{
 				"code":    200,
 				"success": true,
-				"message": "动态执行sql成功",
+				"result":  resultList,
+				"message": "执行动态sql成功",
 			})
 		})
 	}
