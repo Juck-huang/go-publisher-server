@@ -404,7 +404,9 @@ func NewHttpRouter() {
 				return
 			}
 			// 动态执行sql
-			resultList, err := databaseService.DynamicExecSql(dynamicExecDto.Sql)
+			// 首先需要先移除sql多余的空格
+			dyncSql := strings.TrimSpace(dynamicExecDto.Sql)
+			resultList, err := databaseService.DynamicExecSql(dyncSql)
 			if err != nil {
 				c.JSON(http.StatusOK, gin.H{
 					"code":    200,
@@ -418,6 +420,32 @@ func NewHttpRouter() {
 				"success": true,
 				"result":  resultList,
 				"message": "执行动态sql成功",
+			})
+		})
+		// 获取可操作的数据库列表
+		authGroup.POST("/database/db/list", func(c *gin.Context){
+			var databaseService = service.NewDatabaseService("")
+			// 默认可操作除information_schema、mysql、performance_schema和sys这几个数据库之外的表数据
+			ignoreDbs := []string{
+				"information_schema",
+				"sys",
+				"performance_schema",
+				"mysql",
+			}
+			dataList, err := databaseService.GetDbList(ignoreDbs)
+			if err != nil {
+				c.JSON(http.StatusOK, gin.H{
+					"code":    200,
+					"success": false,
+					"message": err.Error(),
+				})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"code":    200,
+				"success": true,
+				"result":  dataList,
+				"message": "获取数据库列表成功",
 			})
 		})
 	}

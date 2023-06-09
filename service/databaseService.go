@@ -146,3 +146,25 @@ func (o *DatabaseService) DynamicExecSql(sql string) (map[string]any, error) {
 	}
 	return dataMap, nil
 }
+
+// 获取可操作的数据库列表
+func (o *DatabaseService) GetDbList(ignoreDbs []string) ([]string, error) {
+	// sql:mysql -uroot -pcjxx2022 -e "SHOW DATABASES WHERE \`Database\` NOT IN ('information_schema', 'sys', 'performance_schema', 'mysql')"
+	command := fmt.Sprintf("mysql -u%s -p%s -e \"SHOW DATABASES WHERE \\`Database\\` NOT IN (", G.C.DB.Mysql.Username, G.C.DB.Mysql.Password)
+	for i, db := range ignoreDbs {
+		if i == len(ignoreDbs) -1 {
+			command += "'" + db + "')\""
+		} else {
+			command += "'" + db + "',"
+		}
+	}
+	
+	dataList, err := o.execCommand("获取数据库列表", command)
+	if err != nil {
+		return dataList, err
+	}
+	if len(dataList) > 0 {
+		dataList = dataList[1:]
+	}
+	return dataList, nil
+}

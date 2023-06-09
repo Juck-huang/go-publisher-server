@@ -1,7 +1,9 @@
 #!/bin/bash
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o go-publisher/go-publisher
+go build -tags release -ldflags "-w -s" -o go-publisher/go-publisher
 cp -r templates go-publisher
 cp -r scripts go-publisher
 cp start go-publisher
+cp config.yaml go-publisher
 mkdir go-publisher/temp
-tar -zcvf go-publisher.tar.gz go-publisher && rm -rf go-publisher
+mkdir go-publisher/db && cp db/server.db go-publisher/db
+# tar -zcvf go-publisher.tar.gz go-publisher && rm -rf go-publisher
