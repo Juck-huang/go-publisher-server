@@ -1,6 +1,6 @@
 package database
 
-type SimpleDto struct {
+type SingleDto struct {
 	DbName       string   `json:"dbName"`       // 数据库名称
 	ExportTables []string `json:"exportTables"` // 需要导出的表
 }

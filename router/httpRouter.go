@@ -242,7 +242,7 @@ func NewHttpRouter() {
 				}
 				// 备份路径=备份路径+年月日+备份的数据库文件
 				backPath := G.C.DB.Mysql.BackUpPath + "/" + time.Now().Format("20060102")
-				_, err := os.Stat(backPath)
+				_, err = os.Stat(backPath)
 				if os.IsNotExist(err) {
 					if err = os.MkdirAll(backPath, os.ModePerm); err != nil {
 						G.Logger.Error("创建备份文件夹失败:", err.Error())
@@ -303,9 +303,9 @@ func NewHttpRouter() {
 			}
 		})
 		// 单独导出某几个表
-		authGroup.POST("/database/simple/export", func(c *gin.Context) {
-			var simpleDto database.SimpleDto
-			err := c.BindJSON(&simpleDto)
+		authGroup.POST("/database/single/export", func(c *gin.Context) {
+			var singleDto database.SingleDto
+			err := c.BindJSON(&singleDto)
 			if err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{
 					"code":    http.StatusBadRequest,
@@ -314,7 +314,7 @@ func NewHttpRouter() {
 				})
 				return
 			}
-			if simpleDto.DbName == "" || len(simpleDto.ExportTables) == 0 {
+			if singleDto.DbName == "" || len(singleDto.ExportTables) == 0 {
 				c.JSON(http.StatusOK, gin.H{
 					"code":    200,
 					"success": false,
@@ -325,7 +325,7 @@ func NewHttpRouter() {
 			uuidStr := uuid.NewV4().String()
 			nowTime := time.Now().Format("20060102150405")
 			tempPathPrefix := "temp/" + uuidStr
-			tempPath := tempPathPrefix + "/" + simpleDto.DbName + "-" + nowTime + ".sql"
+			tempPath := tempPathPrefix + "/" + singleDto.DbName + "-" + nowTime + ".sql"
 			err = os.MkdirAll(tempPathPrefix, os.ModePerm)
 			defer os.RemoveAll(tempPathPrefix)
 			if err != nil {
@@ -337,7 +337,7 @@ func NewHttpRouter() {
 				return
 			}
 			// 需要先判断系统是否有安装mysqldump，有则继续，否则退出程序
-			var databaseService = service.NewDatabaseService(simpleDto.DbName)
+			var databaseService = service.NewDatabaseService(singleDto.DbName)
 			err = databaseService.CheckMysqlDump()
 			if err != nil {
 				c.JSON(http.StatusOK, gin.H{
@@ -348,7 +348,7 @@ func NewHttpRouter() {
 				return
 			}
 			// 导出表
-			err = databaseService.SimpleExportTables(tempPath, simpleDto.ExportTables...)
+			err = databaseService.SimpleExportTables(tempPath, singleDto.ExportTables...)
 			if err != nil {
 				c.JSON(http.StatusOK, gin.H{
 					"code":    200,
@@ -357,8 +357,8 @@ func NewHttpRouter() {
 				})
 				return
 			}
-			sqlFileName := simpleDto.DbName + "-" + nowTime + ".sql"
-			zipFileName := simpleDto.DbName + "-" + nowTime + ".zip"
+			sqlFileName := singleDto.DbName + "-" + nowTime + ".sql"
+			zipFileName := singleDto.DbName + "-" + nowTime + ".zip"
 			zipTempFilePath := tempPathPrefix + "/" + zipFileName
 			// 压缩文件
 			err = databaseService.ZipFile(tempPathPrefix, sqlFileName, zipFileName)
@@ -371,6 +371,53 @@ func NewHttpRouter() {
 				return
 			}
 			c.FileAttachment(zipTempFilePath, zipFileName)
+		})
+		// 动态执行sql
+		authGroup.POST("/database/dynamic/execSql", func(c *gin.Context) {
+			var dynamicExecDto database.DynamicExecDto
+			err := c.BindJSON(&dynamicExecDto)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code":    http.StatusBadRequest,
+					"success": false,
+					"message": "参数解析错误",
+				})
+				return
+			}
+			if dynamicExecDto.DbName == "" || dynamicExecDto.Sql == "" {
+				c.JSON(http.StatusOK, gin.H{
+					"code":    200,
+					"success": false,
+					"message": "参数缺失",
+				})
+				return
+			}
+			// 需要先判断系统是否有安装mysqldump，有则继续，否则退出程序
+			var databaseService = service.NewDatabaseService(dynamicExecDto.DbName)
+			err = databaseService.CheckMysqlDump()
+			if err != nil {
+				c.JSON(http.StatusOK, gin.H{
+					"code":    200,
+					"success": false,
+					"message": err.Error(),
+				})
+				return
+			}
+			// 动态执行sql
+			err = databaseService.DynamicExecSql(dynamicExecDto.Sql)
+			if err != nil {
+				c.JSON(http.StatusOK, gin.H{
+					"code":    200,
+					"success": false,
+					"message": err.Error(),
+				})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"code":    200,
+				"success": true,
+				"message": "动态执行sql成功",
+			})
 		})
 	}
 

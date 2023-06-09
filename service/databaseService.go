@@ -114,3 +114,14 @@ func (o *DatabaseService) SimpleExportTables(tempPath string, tableNames ...stri
 	}
 	return nil
 }
+
+// DynamicExecSql 动态执行sql
+func (o *DatabaseService) DynamicExecSql(sql string) error {
+	command := fmt.Sprintf("mysql -u%s -p%s %s -e \"%s\";", G.C.DB.Mysql.Username, G.C.DB.Mysql.Password, o.DbName, sql)
+	err := o.execCommand("动态执行sql", command)
+	if err != nil {
+		G.Logger.Errorf("动态执行sql脚本执行失败，失败原因:[%s]", err.Error())
+		return errors.New("语句执行失败")
+	}
+	return nil
+}
