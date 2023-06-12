@@ -11,6 +11,7 @@ db:
     username: root
     password: cjxx2022
     backUpPath: /root/sql_bak/temp
+    ignoreDbs: ["information_schema", "sys", "performance_schema", "mysql"]
 
 # zap日志
 zap:

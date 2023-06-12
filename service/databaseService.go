@@ -148,18 +148,42 @@ func (o *DatabaseService) DynamicExecSql(sql string) (map[string]any, error) {
 }
 
 // 获取可操作的数据库列表
-func (o *DatabaseService) GetDbList(ignoreDbs []string) ([]string, error) {
+func (o *DatabaseService) GetDbAndTableList(ignoreDbs []string) (map[string]any, error) {
 	// sql:mysql -uroot -pcjxx2022 -e "SHOW DATABASES WHERE \`Database\` NOT IN ('information_schema', 'sys', 'performance_schema', 'mysql')"
 	command := fmt.Sprintf("mysql -u%s -p%s -e \"SHOW DATABASES WHERE \\`Database\\` NOT IN (", G.C.DB.Mysql.Username, G.C.DB.Mysql.Password)
 	for i, db := range ignoreDbs {
-		if i == len(ignoreDbs) -1 {
+		if i == len(ignoreDbs)-1 {
 			command += "'" + db + "')\""
 		} else {
 			command += "'" + db + "',"
 		}
 	}
-	
+
+	var dbTableMap = make(map[string]any, 1)
 	dataList, err := o.execCommand("获取数据库列表", command)
+	if err != nil {
+		return dbTableMap, err
+	}
+	if len(dataList) > 0 {
+		dataList = dataList[1:]
+	}
+
+	for _, db := range dataList {
+		tables, err := o.__getTableList(db)
+		if err != nil {
+			G.Logger.Error("获取数据库列表失败", err)
+			return dbTableMap, errors.New("获取数据库列表失败")
+		}
+		dbTableMap[db] = tables
+	}
+
+	return dbTableMap, nil
+}
+
+func (o *DatabaseService) __getTableList(dbName string) ([]string, error) {
+	// mysql -uroot -pcjxx2022 stec_bytd -e "SHOW TABLES;"
+	command := fmt.Sprintf("mysql -u%s -p%s %s -e  \"SHOW TABLES;\"", G.C.DB.Mysql.Username, G.C.DB.Mysql.Password, dbName)
+	dataList, err := o.execCommand("获取数据表列表", command)
 	if err != nil {
 		return dataList, err
 	}

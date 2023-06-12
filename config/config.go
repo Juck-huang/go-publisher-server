@@ -3,6 +3,7 @@ package config
 import (
 	"database/sql"
 	"fmt"
+
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -29,11 +30,12 @@ type Config struct {
 			Path string `mapstructure:"path"`
 		} `mapstructure:"sqlite3"`
 		Mysql struct {
-			Host       string `json:"host"`
-			Port       string `json:"port"`
-			Username   string `json:"username"`
-			Password   string `json:"password"`
-			BackUpPath string `json:"backUpPath"`
+			Host       string   `json:"host"`
+			Port       string   `json:"port"`
+			Username   string   `json:"username"`
+			Password   string   `json:"password"`
+			BackUpPath string   `json:"backUpPath"`
+			IgnoreDbs  []string `json:"ignoreDbs"` // 忽略的数据库，如系统数据库
 		}
 	} `mapstructure:"db"`
 	Zap struct {

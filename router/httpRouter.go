@@ -422,17 +422,12 @@ func NewHttpRouter() {
 				"message": "执行动态sql成功",
 			})
 		})
-		// 获取可操作的数据库列表
-		authGroup.POST("/database/db/list", func(c *gin.Context){
+		// 获取可操作的数据库和对应表列表
+		authGroup.POST("/database/dbAndTable/list", func(c *gin.Context) {
 			var databaseService = service.NewDatabaseService("")
 			// 默认可操作除information_schema、mysql、performance_schema和sys这几个数据库之外的表数据
-			ignoreDbs := []string{
-				"information_schema",
-				"sys",
-				"performance_schema",
-				"mysql",
-			}
-			dataList, err := databaseService.GetDbList(ignoreDbs)
+			ignoreDbs := G.C.DB.Mysql.IgnoreDbs
+			dataMap, err := databaseService.GetDbAndTableList(ignoreDbs)
 			if err != nil {
 				c.JSON(http.StatusOK, gin.H{
 					"code":    200,
@@ -444,8 +439,8 @@ func NewHttpRouter() {
 			c.JSON(http.StatusOK, gin.H{
 				"code":    200,
 				"success": true,
-				"result":  dataList,
-				"message": "获取数据库列表成功",
+				"result":  dataMap,
+				"message": "获取数据库和表信息成功",
 			})
 		})
 	}
