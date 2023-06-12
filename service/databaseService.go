@@ -79,7 +79,11 @@ func (o *DatabaseService) execCommand(commondName string, commond string) ([]str
 		G.Logger.Errorf("[%s]执行脚本失败，具体状态:[%s], 失败原因: [%s]", commondName, err.Error(), strs[1])
 		return newArr, errors.New("执行sql脚本失败,具体原因：" + strs[1])
 	}
-	G.Logger.Infof("[%s]脚本执行结果,状态: [%s]", commondName, strs)
+	G.Logger.Infof("[%s]脚本执行结果,状态: %s", commondName, strs)
+	// 如果只有一位则直接判断
+	if len(strs) == 1 && strs[0] == "0" {
+		return strs, nil
+	}
 	newArr = append(newArr, strs[1:len(strs)-1]...)
 	// 判断数组最后一位是否是0，为0则代表脚本执行成功
 	if strs[len(strs)-1] == "0" {
