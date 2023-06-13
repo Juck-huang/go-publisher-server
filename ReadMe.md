@@ -16,3 +16,7 @@ CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build
 `请求方式: POST`
 `type: 必传,pc/app`
 `file: 必传,文件流`
+
+# rsa加密
+`生成私钥命令：openssl genrsa -out rsa_1024_priv.pem 1024`  
+`生成公钥命令：openssl rsa -pubout -in rsa_1024_priv.pem -out rsa_1024_pub.pem`

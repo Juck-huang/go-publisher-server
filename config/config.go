@@ -47,6 +47,9 @@ type Config struct {
 		Mode       string `mapstructure:"mode"`
 		Level      string `mapstructure:"level"`
 	} `mapstructure:"zap"`
+	Rsa struct {
+		PrivateKey string `json:"privateKey"`
+	} `mapstructure:"rsa"`
 }
 
 func InitLog() {

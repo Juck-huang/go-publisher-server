@@ -76,8 +76,8 @@ func (o *DatabaseService) execCommand(commondName string, commond string) ([]str
 	strs := strings.Split(outStr, "\n")
 	newArr := []string{}
 	if err != nil {
-		G.Logger.Errorf("[%s]执行脚本失败，具体状态:[%s], 失败原因: [%s]", commondName, err.Error(), strs[1])
-		return newArr, errors.New("执行sql脚本失败,具体原因：" + strs[1])
+		G.Logger.Errorf("[%s]执行脚本失败，具体状态:[%s], 失败原因: [%s]", commondName, err.Error(), strs)
+		return newArr, errors.New(fmt.Sprintf("执行sql脚本失败,具体原因：%s", strs))
 	}
 	G.Logger.Infof("[%s]脚本执行结果,状态: %s", commondName, strs)
 	// 如果只有一位则直接判断

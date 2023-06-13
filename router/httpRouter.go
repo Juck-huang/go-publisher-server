@@ -53,7 +53,7 @@ func NewHttpRouter() {
 				})
 				return
 			}
-			var userService = service.UserService{}
+			var userService = service.NewUserService()
 			err = userService.CheckUsernameAndPassword(requestDto.Username, requestDto.Password)
 			if err != nil {
 				c.JSON(http.StatusOK, gin.H{
@@ -89,6 +89,15 @@ func NewHttpRouter() {
 	// 需要认证的组
 	authGroup := router.Group("/rest", middleware.AuthJwtToken())
 	{
+		// 获取用户信息
+		authGroup.POST("/getUserInfo", func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{
+				"code":    http.StatusOK,
+				"message": "获取用户数据成功",
+				"success": true,
+				"result":  map[string]any{},
+			})
+		})
 		// 项目发布
 		authGroup.POST("/project/publish", func(c *gin.Context) {
 			var err error // 定义一个全局错误
@@ -432,7 +441,7 @@ func NewHttpRouter() {
 				c.JSON(http.StatusOK, gin.H{
 					"code":    200,
 					"success": false,
-					"message": err.Error(),
+					"message": "获取数据库列表失败",
 				})
 				return
 			}
