@@ -452,6 +452,38 @@ func NewHttpRouter() {
 				"message": "获取数据库和表信息成功",
 			})
 		})
+		// 登出
+		authGroup.POST("/logout", func(c *gin.Context) {
+			// 登出逻辑
+			// 1.登出后把该用户的token加入redis，并设置过期时间和token的有效时间一致
+			// 2.请求接口时，校验token通过后，先去redis中读取该token，如果存在，则证明该用户已经登出，直接返回没有权限
+			//（存入redis的token有效时间永远比生成的token过期时间长），需要重新登陆获取token
+			token := c.GetHeader("x-token")
+			username, exist := c.Get("username")
+			if !exist {
+				c.JSON(http.StatusOK, gin.H{
+					"code":    http.StatusOK,
+					"message": "登出失败",
+					"success": false,
+				})
+				return
+			}
+			userService := service.NewUserService()
+			err := userService.Logout(token, username.(string))
+			if err != nil {
+				c.JSON(http.StatusOK, gin.H{
+					"code":    http.StatusOK,
+					"message": "登出失败:" + err.Error(),
+					"success": false,
+				})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"code":    http.StatusOK,
+				"message": "登出成功",
+				"success": true,
+			})
+		})
 	}
 
 	router.Run(fmt.Sprintf(":%d", G.C.Server.Port))

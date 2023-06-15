@@ -2,6 +2,11 @@
 server:
   port: 8002
 
+jwt:
+  token:
+    expire: 36000 # token有效期,单位为秒
+    secret: token授权
+
 db:
   sqlite3: # 本地的sqlite数据库
     path: db/server.db  # 数据库路径
@@ -12,6 +17,13 @@ db:
     password: cjxx2022
     backUpPath: /root/sql_bak/temp
     ignoreDbs: ["information_schema", "sys", "performance_schema", "mysql"]
+
+redis:
+  host: 172.168.20.157
+  port: 6379
+  password: doss2020
+  db: 0
+  keyExpire: 60 # key有效期，60秒
 
 # zap日志
 zap:

@@ -3,8 +3,8 @@ package config
 import (
 	"database/sql"
 	"fmt"
-
 	"github.com/fsnotify/fsnotify"
+	"github.com/go-redis/redis"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
@@ -16,15 +16,22 @@ var config = new(Config)
 var G = new(Global)
 
 type Global struct {
-	C      *Config
-	Logger *zap.SugaredLogger
-	DB     *sql.DB
+	C           *Config
+	Logger      *zap.SugaredLogger
+	DB          *sql.DB
+	RedisClient *redis.Client
 }
 
 type Config struct {
 	Server struct {
 		Port int64 `mapstructure:"port"`
 	} `mapstructure:"server"`
+	Jwt struct {
+		Token struct {
+			Expire int    `json:"expire"` // 有效期，单位秒
+			Secret string `json:"secret"` // 秘钥
+		} `mapstructure:"token"`
+	} `mapstructure:"jwt"`
 	DB struct {
 		Sqlite3 struct {
 			Path string `mapstructure:"path"`
@@ -38,6 +45,13 @@ type Config struct {
 			IgnoreDbs  []string `json:"ignoreDbs"` // 忽略的数据库，如系统数据库
 		}
 	} `mapstructure:"db"`
+	Redis struct {
+		Host      string `json:"host"`
+		Port      string `json:"port"`
+		Password  string `json:"password"`
+		Db        int    `json:"db"`
+		KeyExpire int    `json:"keyExpire"` // key有效期，单位秒
+	} `mapstructure:"redis"`
 	Zap struct {
 		FileName   string `mapstructure:"filename"`
 		MaxSize    int    `mapstructure:"maxsize"`
@@ -83,5 +97,6 @@ func init() {
 	InitViper()
 	InitLog()
 	InitDB()
+	InitRedis()
 	G.Logger.Info("初始化所有配置成功")
 }

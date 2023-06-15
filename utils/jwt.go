@@ -3,7 +3,12 @@ package utils
 import (
 	"errors"
 	"github.com/dgrijalva/jwt-go"
+	"hy.juck.com/go-publisher-server/config"
 	"time"
+)
+
+var (
+	G = config.G
 )
 
 type MyClaims struct {
@@ -11,17 +16,15 @@ type MyClaims struct {
 	jwt.StandardClaims
 }
 
-const TokenExpireDuration = time.Hour * 10
-
-var MySecret = []byte("Token授权")
+var MySecret = []byte(G.C.Jwt.Token.Secret)
 
 // GenToken 生成token
 func GenToken(username string) (string, error) {
 	c := MyClaims{
 		username,
 		jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(TokenExpireDuration).Unix(), // 过期时间
-			Issuer:    username,                                   // 签发人
+			ExpiresAt: time.Now().Add(time.Duration(G.C.Jwt.Token.Expire) * time.Second).Unix(), // 过期时间
+			Issuer:    username,                                                                 // 签发人
 		},
 	}
 	// 使用指定的签名方法创建签名对象
