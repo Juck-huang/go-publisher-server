@@ -3,10 +3,11 @@ package service
 import (
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/go-redis/redis"
 	"hy.juck.com/go-publisher-server/config"
 	"hy.juck.com/go-publisher-server/utils"
-	"time"
 )
 
 var (
@@ -22,21 +23,14 @@ func NewUserService() *UserService {
 
 // CheckUsernameAndPassword 校验用户名和密码
 func (obj *UserService) CheckUsernameAndPassword(username string, password string) error {
-	rsa := utils.NewRsa(G.C.Rsa.PrivateKey)
+	rsa := utils.NewRsa(G.C.Jwt.Rsa.PrivateKey)
 	decrypt, err := rsa.Decrypt([]byte(password))
 	if err != nil {
 		G.Logger.Errorf("登录失败，失败原因:[%s]", err)
 		return errors.New("用户名或密码不正确")
 	}
-	prepare, err := G.DB.Prepare("select count(1) from user where username = ? and password = ?")
-	if err != nil {
-		return err
-	}
 	var num int64
-	err = prepare.QueryRow(username, string(decrypt)).Scan(&num)
-	if err != nil {
-		return err
-	}
+	G.DB.Debug().Where("where username = ? and password = ?", username, decrypt).Count(&num)
 	if num > 0 {
 		return nil
 	}

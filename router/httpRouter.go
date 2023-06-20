@@ -250,7 +250,7 @@ func NewHttpRouter() {
 					return
 				}
 				// 备份路径=备份路径+年月日+备份的数据库文件
-				backPath := G.C.DB.Mysql.BackUpPath + "/" + time.Now().Format("20060102")
+				backPath := G.C.Ops.Mysql.BackUpPath + "/" + time.Now().Format("20060102")
 				_, err = os.Stat(backPath)
 				if os.IsNotExist(err) {
 					if err = os.MkdirAll(backPath, os.ModePerm); err != nil {
@@ -435,7 +435,7 @@ func NewHttpRouter() {
 		authGroup.POST("/database/dbAndTable/list", func(c *gin.Context) {
 			var databaseService = service.NewDatabaseService("")
 			// 默认可操作除information_schema、mysql、performance_schema和sys这几个数据库之外的表数据
-			ignoreDbs := G.C.DB.Mysql.IgnoreDbs
+			ignoreDbs := G.C.Ops.Mysql.IgnoreDbs
 			dataMap, err := databaseService.GetDbAndTableList(ignoreDbs)
 			if err != nil {
 				c.JSON(http.StatusOK, gin.H{

@@ -1,12 +1,13 @@
 package config
 
 import (
-	"database/sql"
 	"fmt"
+
 	"github.com/fsnotify/fsnotify"
 	"github.com/go-redis/redis"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 // 配置文件指针
@@ -18,7 +19,7 @@ var G = new(Global)
 type Global struct {
 	C           *Config
 	Logger      *zap.SugaredLogger
-	DB          *sql.DB
+	DB          *gorm.DB
 	RedisClient *redis.Client
 }
 
@@ -26,16 +27,7 @@ type Config struct {
 	Server struct {
 		Port int64 `mapstructure:"port"`
 	} `mapstructure:"server"`
-	Jwt struct {
-		Token struct {
-			Expire int    `json:"expire"` // 有效期，单位秒
-			Secret string `json:"secret"` // 秘钥
-		} `mapstructure:"token"`
-	} `mapstructure:"jwt"`
-	DB struct {
-		Sqlite3 struct {
-			Path string `mapstructure:"path"`
-		} `mapstructure:"sqlite3"`
+	Ops struct {
 		Mysql struct {
 			Host       string   `json:"host"`
 			Port       string   `json:"port"`
@@ -44,14 +36,23 @@ type Config struct {
 			BackUpPath string   `json:"backUpPath"`
 			IgnoreDbs  []string `json:"ignoreDbs"` // 忽略的数据库，如系统数据库
 		}
-	} `mapstructure:"db"`
-	Redis struct {
-		Host      string `json:"host"`
-		Port      string `json:"port"`
-		Password  string `json:"password"`
-		Db        int    `json:"db"`
-		KeyExpire int    `json:"keyExpire"` // key有效期，单位秒
-	} `mapstructure:"redis"`
+	} `mapstructure:"ops"`
+	Application struct { // 应用自身需要使用的中间件
+		Redis struct {
+			Host      string `json:"host"`
+			Port      string `json:"port"`
+			Password  string `json:"password"`
+			Db        int    `json:"db"`
+			KeyExpire int    `json:"keyExpire"` // key有效期，单位秒
+		} `mapstructure:"redis"`
+		Mysql struct {
+			Host     string `json:"host"`
+			Port     string `json:"port"`
+			Username string `json:"username"`
+			Password string `json:"password"`
+			Db       string `json:"db"`
+		} `mapstructure:"mysql"`
+	} `mapstructure:"Application"`
 	Zap struct {
 		FileName   string `mapstructure:"filename"`
 		MaxSize    int    `mapstructure:"maxsize"`
@@ -61,9 +62,15 @@ type Config struct {
 		Mode       string `mapstructure:"mode"`
 		Level      string `mapstructure:"level"`
 	} `mapstructure:"zap"`
-	Rsa struct {
-		PrivateKey string `json:"privateKey"`
-	} `mapstructure:"rsa"`
+	Jwt struct {
+		Token struct {
+			Expire int    `json:"expire"` // 有效期，单位秒
+			Secret string `json:"secret"` // 秘钥
+		} `mapstructure:"token"`
+		Rsa struct {
+			PrivateKey string `json:"privateKey"` // 私钥
+		} `mapstructure:"rsa"`
+	} `mapstructure:"jwt"`
 }
 
 func InitLog() {

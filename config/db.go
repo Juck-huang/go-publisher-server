@@ -1,44 +1,40 @@
 package config
 
 import (
-	"database/sql"
 	"fmt"
-	_ "github.com/mattn/go-sqlite3"
+
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+	"hy.juck.com/go-publisher-server/model"
 )
 
 func InitDB() {
-	__initSqlite()
-	__initTable()
+	initMysql()
 }
 
-// 初始化本地sqlite数据库
-func __initSqlite() {
-	var err error
-	G.DB, err = sql.Open("sqlite3", G.C.DB.Sqlite3.Path)
-	if err != nil {
-		panic(fmt.Sprintf("加载本地数据库失败，失败原因%s", err))
-	}
-	// 测试连接是否成功
-	err = G.DB.Ping()
-	if err != nil {
-		panic(fmt.Sprintf("加载本地数据库失败，失败原因%s", err))
-	}
-	G.Logger.Info("加载本地sqlite数据库成功")
-}
+// 初始化mysql
+func initMysql() {
 
-func __initTable() {
-	_, err := G.DB.Exec(`
-		CREATE TABLE IF NOT EXISTS user (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT,
-			username TEXT,
-			password TEXT,
-			create_date TEXT,
-		    last_login_date TEXT
-		)
-	`)
+	mysqlConfig := G.C.Application.Mysql
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", mysqlConfig.Username, mysqlConfig.Password, mysqlConfig.Host, mysqlConfig.Port, mysqlConfig.Db)
+	database, err := gorm.Open(mysql.New(mysql.Config{
+		DSN:               dsn,
+		DefaultStringSize: 255,
+	}), &gorm.Config{})
+
 	if err != nil {
-		panic(fmt.Sprintf("初始化本地用户表失败，失败原因%s", err.Error()))
+		panic("初始化数据库错误：" + err.Error())
 	}
-	G.Logger.Info("初始化本地表成功")
+
+	sqlDB, err := database.DB()
+	if err != nil {
+		panic("初始化数据库错误：" + err.Error())
+	}
+	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetMaxOpenConns(100)
+	// sqlDB.SetConnMaxLifetime(time.Hour)
+	G.DB = database
+	// 自动迁移表
+	database.AutoMigrate(&model.User{})
+	G.Logger.Infof("初始化数据库连接成功")
 }
