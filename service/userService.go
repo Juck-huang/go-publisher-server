@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"hy.juck.com/go-publisher-server/model"
 	"time"
 
 	"github.com/go-redis/redis"
@@ -24,14 +25,30 @@ func NewUserService() *UserService {
 // CheckUsernameAndPassword 校验用户名和密码
 func (obj *UserService) CheckUsernameAndPassword(username string, password string) error {
 	rsa := utils.NewRsa(G.C.Jwt.Rsa.PrivateKey)
-	decrypt, err := rsa.Decrypt([]byte(password))
+	decryptPassword, err := rsa.Decrypt([]byte(password))
 	if err != nil {
-		G.Logger.Errorf("登录失败，失败原因:[%s]", err)
+		G.Logger.Errorf("解析密码失败，失败原因:[%s]，加密密码:[%s]", err, password)
 		return errors.New("用户名或密码不正确")
 	}
-	var num int64
-	G.DB.Debug().Where("where username = ? and password = ?", username, decrypt).Count(&num)
-	if num > 0 {
+	// 校验现有的密码和argon2生成的加密密码正确性
+	var user model.User
+	G.DB.Debug().Where("username = ?", username).First(&user)
+	if user.Password == "" {
+		G.Logger.Errorf("用户名[%s]不存在", username)
+		return errors.New("用户名不存在")
+	}
+	// 1.先从数据库查询出现有用户名对应加密后的密码
+	p := &utils.Params{
+		Memory:      64 * 1024,
+		Iterations:  3,
+		Parallelism: 2,
+		SaltLength:  16,
+		KeyLength:   32,
+	}
+	argonUtils := utils.NewArgon2(p)
+	// 2.数据库取出来的argon2加密后的密码和现有的做比对
+	matchPassword, _ := argonUtils.ComparePasswordAndHash(string(decryptPassword), user.Password)
+	if matchPassword {
 		return nil
 	}
 	return errors.New("用户名或密码不正确")

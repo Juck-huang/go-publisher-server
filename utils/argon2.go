@@ -16,30 +16,37 @@ var (
 )
 
 type Argon2 struct {
+	p *Params
 }
 
-type params struct {
-	memory      uint32
-	iterations  uint32
-	parallelism uint8
-	saltLength  uint32
-	keyLength   uint32
+type Params struct {
+	Memory      uint32
+	Iterations  uint32
+	Parallelism uint8
+	SaltLength  uint32
+	KeyLength   uint32
+}
+
+func NewArgon2(ars *Params) *Argon2 {
+	return &Argon2{
+		p: ars,
+	}
 }
 
 // GenerateFromPassword 参考https://juejin.cn/post/7132669876312752136
 // GenerateFromPassword 从普通的密码生成argon2加密后的密码
-func (o *Argon2) GenerateFromPassword(password string, p *params) (encodedHash string, err error) {
-	salt, err := o.generateRandomBytes(p.saltLength)
+func (o *Argon2) GenerateFromPassword(password string) (encodedHash string, err error) {
+	salt, err := o.generateRandomBytes(o.p.SaltLength)
 	if err != nil {
 		return "", err
 	}
-	hash := argon2.IDKey([]byte(password), salt, p.iterations, p.memory, p.parallelism, p.keyLength)
+	hash := argon2.IDKey([]byte(password), salt, o.p.Iterations, o.p.Memory, o.p.Parallelism, o.p.KeyLength)
 	// Base64 encode the salt and hashed password.
 	b64Salt := base64.RawStdEncoding.EncodeToString(salt)
 	b64Hash := base64.RawStdEncoding.EncodeToString(hash)
 	// Return a string using the standard encoded hash representation.
-	encodedHash = fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s", argon2.Version, p.memory, p.iterations,
-		p.parallelism, b64Salt, b64Hash)
+	encodedHash = fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s", argon2.Version, o.p.Memory, o.p.Iterations,
+		o.p.Parallelism, b64Salt, b64Hash)
 	return encodedHash, nil
 }
 
@@ -60,7 +67,7 @@ func (o *Argon2) ComparePasswordAndHash(password, encodedHash string) (match boo
 		return false, err
 	}
 	// Derive the key from the other password using the same parameters.
-	otherHash := argon2.IDKey([]byte(password), salt, p.iterations, p.memory, p.parallelism, p.keyLength)
+	otherHash := argon2.IDKey([]byte(password), salt, p.Iterations, p.Memory, p.Parallelism, p.KeyLength)
 	// Check that the contents of the hashed passwords are identical. Note
 	// that we are using the subtle.ConstantTimeCompare() function for this
 	// to help prevent timing attacks.
@@ -71,7 +78,7 @@ func (o *Argon2) ComparePasswordAndHash(password, encodedHash string) (match boo
 }
 
 // 通过hash解码密码
-func (o *Argon2) decodeHash(encodedHash string) (p *params, salt, hash []byte, err error) {
+func (o *Argon2) decodeHash(encodedHash string) (p *Params, salt, hash []byte, err error) {
 	vals := strings.Split(encodedHash, "$")
 	if len(vals) != 6 {
 		return nil, nil, nil, ErrInvalidHash
@@ -85,8 +92,8 @@ func (o *Argon2) decodeHash(encodedHash string) (p *params, salt, hash []byte, e
 	if version != argon2.Version {
 		return nil, nil, nil, ErrIncompatibleVersion
 	}
-	p = &params{}
-	_, err = fmt.Sscanf(vals[3], "m=%d,t=%d,p=%d", &p.memory, &p.iterations, &p.parallelism)
+	p = &Params{}
+	_, err = fmt.Sscanf(vals[3], "m=%d,t=%d,p=%d", &p.Memory, &p.Iterations, &p.Parallelism)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -94,11 +101,11 @@ func (o *Argon2) decodeHash(encodedHash string) (p *params, salt, hash []byte, e
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	p.saltLength = uint32(len(salt))
+	p.SaltLength = uint32(len(salt))
 	hash, err = base64.RawStdEncoding.Strict().DecodeString(vals[5])
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	p.keyLength = uint32(len(hash))
+	p.KeyLength = uint32(len(hash))
 	return p, salt, hash, nil
 }

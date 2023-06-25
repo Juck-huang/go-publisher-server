@@ -8,7 +8,8 @@ ops: # 运维中需要用到的中间件
     port: 3306  # 数据库端口
     username: root
     password: cjxx2022
-    backUpPath: /root/sql_bak/temp  # 备份地址
+#    backUpPath: /root/sql_bak/temp  # 当前服务器备份保存地址
+    backUpPath: /Users/mac/Downloads/sql_bak  # 本地备份保存地址
     ignoreDbs: ["information_schema", "sys", "performance_schema", "mysql"] # 需要忽略的表
 
 application: # 应用自身需要使用的中间件
@@ -19,7 +20,7 @@ application: # 应用自身需要使用的中间件
     db: 0
     keyExpire: 60 # key有效期，60秒
   mysql: # mysql配置
-    host: 127.0.0.1
+    host: 172.168.20.160
     port: 3306
     username: root
     password: Cjxx2023..&
@@ -40,5 +41,5 @@ jwt: # jwt授权认证
     expire: 36000 # token有效期,单位为秒
     secret: token授权 # 秘钥
   rsa: # rsa加密私钥
-  privateKey: MIICWwIBAAKBgQC8kRvkuQr7eO8G6PVFT08o0AgSR5Zspy1wYcbwrZMKe17xt+og kirRlZ3aAC4RXHzajF8jnRWm5fIPEW8DxVYGziDdNeeeTpBnBNs0LjuGC5OljdpW 9EFJiHEPJwpfZyeCoO/IOLP2BdprIxEWQLz6B4CaUc9+v5EEXPx9tStQYwIDAQAB AoGAEi2zELO+GUwpTvM6YfopWXfkr05zc/oR6VmjwiQZntMR7h+a1JUCx72ywAdw aYAPEUqjCV3lbneQhF9b4nMtvcN9WjTHMfPhNKQpaPDv8wjUfDiPNACPcnnKirMJ gsr5kxJGhM+Ln1iXZl8gom7B0/P5DZz/zcWiAsefbgzBdeECQQD6HypKxsG3Blem D2aVXq1g1aCnPb+TItqlEVPCE85wbUzFT3H+YKNPsg3ih4PosnUG4cn5h1NfkT4S nHhNAuerAkEAwP+arsdyY2J+A2IA4Vsa7LoWM2DX5TvO3k7v7JzdHr7T44DuVYlr qaXFxSgE9OuyOticZa1GI/VijBax2U6iKQJANsNOEjM0RKtp01z52+hv04zScOuP H1r5Pjzt9sc5Yto7fdPoJIbqGs/kRF3hXrh78PbMrwqXEYyOZ6rEmC/zowJATsOB 4zZuTnURrFvAtDe0I0xGZy1srpbb9AoPDGdwLm3+l2g03B+7Gn8W2UFd1H6kPDPO kAhJCb/JOhbA+kiHEQJALNOid8R85DO7txwndFWEDsNEk0PAgb98iXfoIo5t4H2I JqbXKdo/epOnMCDdyoKrv+5f8F/1XpF+Umznic6Jzw==
+    privateKey: MIICWwIBAAKBgQC8kRvkuQr7eO8G6PVFT08o0AgSR5Zspy1wYcbwrZMKe17xt+og kirRlZ3aAC4RXHzajF8jnRWm5fIPEW8DxVYGziDdNeeeTpBnBNs0LjuGC5OljdpW 9EFJiHEPJwpfZyeCoO/IOLP2BdprIxEWQLz6B4CaUc9+v5EEXPx9tStQYwIDAQAB AoGAEi2zELO+GUwpTvM6YfopWXfkr05zc/oR6VmjwiQZntMR7h+a1JUCx72ywAdw aYAPEUqjCV3lbneQhF9b4nMtvcN9WjTHMfPhNKQpaPDv8wjUfDiPNACPcnnKirMJ gsr5kxJGhM+Ln1iXZl8gom7B0/P5DZz/zcWiAsefbgzBdeECQQD6HypKxsG3Blem D2aVXq1g1aCnPb+TItqlEVPCE85wbUzFT3H+YKNPsg3ih4PosnUG4cn5h1NfkT4S nHhNAuerAkEAwP+arsdyY2J+A2IA4Vsa7LoWM2DX5TvO3k7v7JzdHr7T44DuVYlr qaXFxSgE9OuyOticZa1GI/VijBax2U6iKQJANsNOEjM0RKtp01z52+hv04zScOuP H1r5Pjzt9sc5Yto7fdPoJIbqGs/kRF3hXrh78PbMrwqXEYyOZ6rEmC/zowJATsOB 4zZuTnURrFvAtDe0I0xGZy1srpbb9AoPDGdwLm3+l2g03B+7Gn8W2UFd1H6kPDPO kAhJCb/JOhbA+kiHEQJALNOid8R85DO7txwndFWEDsNEk0PAgb98iXfoIo5t4H2I JqbXKdo/epOnMCDdyoKrv+5f8F/1XpF+Umznic6Jzw==
 

@@ -16,10 +16,7 @@ require (
 	golang.org/x/crypto v0.9.0
 )
 
-require (
-	github.com/jinzhu/now v1.1.5 // indirect
-	github.com/lib/pq v1.2.0 // indirect
-)
+require github.com/jinzhu/now v1.1.5 // indirect
 
 require (
 	github.com/bytedance/sonic v1.8.2 // indirect
@@ -31,7 +28,6 @@ require (
 	github.com/go-sql-driver/mysql v1.7.1 // indirect
 	github.com/goccy/go-json v0.10.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/jinzhu/gorm v1.9.16
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.4 // indirect

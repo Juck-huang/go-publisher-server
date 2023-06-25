@@ -29,7 +29,18 @@ func (o *DatabaseService) CheckMysqlDump() error {
 	return nil
 }
 
-// 复制文件
+// CheckMysql 检查mysql状态
+func (o *DatabaseService) CheckMysql() error {
+	command := "source /etc/profile && mysql --version"
+	_, err := o.execCommand("检查mysql", command)
+	if err != nil {
+		G.Logger.Errorf("未检测到mysql,请先安装，具体原因:[%s]", err.Error())
+		return errors.New("导出或备份数据库失败")
+	}
+	return nil
+}
+
+// CopyFile 复制文件
 func (o *DatabaseService) CopyFile(originFilePath string, targetFilePath string) error {
 	_, err := os.Stat(originFilePath)
 	if os.IsNotExist(err) {
@@ -46,12 +57,12 @@ func (o *DatabaseService) CopyFile(originFilePath string, targetFilePath string)
 	return nil
 }
 
-// HandleMysqlDump 导出或备份整个数据库
+// HandleTotalMysqlDump HandleMysqlDump 导出或备份整个数据库
 func (o *DatabaseService) HandleTotalMysqlDump(tempPath string, ignoreTables ...string) error {
 	// 执行脚本导出数据库
 	exportScript := "source /etc/profile && mysqldump -h" + G.C.Ops.Mysql.Host + " -P" + G.C.Ops.Mysql.Port + " " +
 		"-u" + G.C.Ops.Mysql.Username + " -p" + G.C.Ops.Mysql.Password + " " + o.DbName
-	if len(exportScript) > 0 {
+	if len(ignoreTables) > 0 {
 		for _, ignoreTable := range ignoreTables {
 			exportScript += " --ignore-table=" + o.DbName + "." + ignoreTable
 		}
@@ -79,7 +90,7 @@ func (o *DatabaseService) execCommand(commondName string, commond string) ([]str
 		G.Logger.Errorf("[%s]执行脚本失败，具体状态:[%s], 失败原因: [%s]", commondName, err.Error(), strs)
 		return newArr, errors.New(fmt.Sprintf("执行sql脚本失败,具体原因：%s", strs))
 	}
-	G.Logger.Infof("[%s]脚本执行结果,状态: %s", commondName, strs)
+	G.Logger.Infof("[%s]脚本执行结果,状态: %s", commondName, outStr)
 	// 如果只有一位则直接判断
 	if len(strs) == 1 && strs[0] == "0" {
 		return strs, nil
@@ -93,7 +104,7 @@ func (o *DatabaseService) execCommand(commondName string, commond string) ([]str
 	return newArr, errors.New("执行脚本失败")
 }
 
-// 压缩文件
+// ZipFile 压缩文件
 func (o *DatabaseService) ZipFile(currentPath string, originPath string, targetPath string) error {
 	command := fmt.Sprintf("cd %s && zip -qj %s %s", currentPath, targetPath, originPath)
 	_, err := o.execCommand("压缩文件", command)
@@ -104,8 +115,9 @@ func (o *DatabaseService) ZipFile(currentPath string, originPath string, targetP
 	return nil
 }
 
-// 单独导出多个表
+// SingleExportTables 单独导出多个表
 func (o *DatabaseService) SingleExportTables(tempPath string, tableNames ...string) error {
+	// mysqldump -h127.0.0.1 -P3306 -uroot -p123456 stec-cdsa --ignore-table=stec-cdsa.sys_log > cdsa
 	command := fmt.Sprintf("mysqldump -h%s -P%s -u%s -p%s %s", G.C.Ops.Mysql.Host, G.C.Ops.Mysql.Port,
 		G.C.Ops.Mysql.Username, G.C.Ops.Mysql.Password, o.DbName)
 	if len(tableNames) > 0 {
@@ -125,7 +137,8 @@ func (o *DatabaseService) SingleExportTables(tempPath string, tableNames ...stri
 
 // DynamicExecSql 动态执行sql
 func (o *DatabaseService) DynamicExecSql(sql string) (map[string]any, error) {
-	command := fmt.Sprintf("mysql -u%s -p%s %s -e \"%s\"", G.C.Ops.Mysql.Username, G.C.Ops.Mysql.Password, o.DbName, sql)
+	command := fmt.Sprintf("mysql -u%s -p%s -h%s -P%s %s -e \"%s\"", G.C.Ops.Mysql.Username,
+		G.C.Ops.Mysql.Password, G.C.Ops.Mysql.Host, G.C.Ops.Mysql.Port, o.DbName, sql)
 	resultList, err := o.execCommand("动态执行sql", command)
 	var dataMap = make(map[string]any, 1)
 	if err != nil {
@@ -151,10 +164,11 @@ func (o *DatabaseService) DynamicExecSql(sql string) (map[string]any, error) {
 	return dataMap, nil
 }
 
-// 获取可操作的数据库列表
+// GetDbAndTableList 获取可操作的数据库列表
 func (o *DatabaseService) GetDbAndTableList(ignoreDbs []string) (map[string]any, error) {
-	// sql:mysql -uroot -pcjxx2022 -e "SHOW DATABASES WHERE \`Database\` NOT IN ('information_schema', 'sys', 'performance_schema', 'mysql')"
-	command := fmt.Sprintf("mysql -u%s -p%s -e \"SHOW DATABASES WHERE \\`Database\\` NOT IN (", G.C.Ops.Mysql.Username, G.C.Ops.Mysql.Password)
+	// sql:mysql -uroot -pcjxx2022 -h127.0.0.1 -P3306 -e "SHOW DATABASES WHERE \`Database\` NOT IN ('information_schema', 'sys', 'performance_schema', 'mysql')"
+	command := fmt.Sprintf("mysql -u%s -p%s -h%s -P%s -e \"SHOW DATABASES WHERE \\`Database\\` NOT IN (", G.C.Ops.Mysql.Username, G.C.Ops.Mysql.Password,
+		G.C.Ops.Mysql.Host, G.C.Ops.Mysql.Port)
 	for i, db := range ignoreDbs {
 		if i == len(ignoreDbs)-1 {
 			command += "'" + db + "')\""
@@ -185,8 +199,9 @@ func (o *DatabaseService) GetDbAndTableList(ignoreDbs []string) (map[string]any,
 }
 
 func (o *DatabaseService) __getTableList(dbName string) ([]string, error) {
-	// mysql -uroot -pcjxx2022 stec_bytd -e "SHOW TABLES;"
-	command := fmt.Sprintf("mysql -u%s -p%s %s -e  \"SHOW TABLES;\"", G.C.Ops.Mysql.Username, G.C.Ops.Mysql.Password, dbName)
+	// mysql -uroot -pcjxx2022 -h127.0.0.1 -P3306 stec_bytd -e "SHOW TABLES;"
+	command := fmt.Sprintf("mysql -u%s -p%s -h%s -P%s  %s -e  \"SHOW TABLES;\"", G.C.Ops.Mysql.Username,
+		G.C.Ops.Mysql.Password, G.C.Ops.Mysql.Host, G.C.Ops.Mysql.Port, dbName)
 	dataList, err := o.execCommand("获取数据表列表", command)
 	if err != nil {
 		return dataList, err
@@ -195,4 +210,17 @@ func (o *DatabaseService) __getTableList(dbName string) ([]string, error) {
 		dataList = dataList[1:]
 	}
 	return dataList, nil
+}
+
+// ExecSqlFile 执行sql文件
+func (o *DatabaseService) ExecSqlFile(tempPath string) error {
+	// mysql -uroot  -P3306 -p123456 -h127.0.0.1 数据库名称 < sql脚本全路径
+	command := fmt.Sprintf("mysql -u%s -P%s -p%s -h%s %s < %s", G.C.Ops.Mysql.Username, G.C.Ops.Mysql.Port,
+		G.C.Ops.Mysql.Password, G.C.Ops.Mysql.Host, o.DbName, tempPath)
+	_, err := o.execCommand("执行sql文件", command)
+	if err != nil {
+		G.Logger.Errorf("执行sql文件失败,失败原因:[%s]", err.Error())
+		return errors.New("执行sql文件失败")
+	}
+	return nil
 }

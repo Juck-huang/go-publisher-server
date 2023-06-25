@@ -35,6 +35,13 @@ func initMysql() {
 	// sqlDB.SetConnMaxLifetime(time.Hour)
 	G.DB = database
 	// 自动迁移表
-	database.AutoMigrate(&model.User{})
+	database.AutoMigrate(
+		&model.User{},
+		&model.DatabaseOperationLog{},
+		&model.Project{},
+		&model.DatabaseOperationLog{},
+		&model.ProjectRelease{},
+		&model.ProjectType{},
+	)
 	G.Logger.Infof("初始化数据库连接成功")
 }
