@@ -42,6 +42,7 @@ func initMysql() {
 		&model.DatabaseOperationLog{},
 		&model.ProjectRelease{},
 		&model.ProjectType{},
+		&model.ProjectEnv{},
 	)
 	G.Logger.Infof("初始化数据库连接成功")
 }

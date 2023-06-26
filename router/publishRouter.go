@@ -1,42 +1,40 @@
 package router
 
 import (
-	"fmt"
 	"github.com/gin-gonic/gin"
 	uuid "github.com/satori/go.uuid"
 	"hy.juck.com/go-publisher-server/common"
+	"hy.juck.com/go-publisher-server/service"
 	"net/http"
+	"os"
 	"strings"
 )
 
-// Release 项目发布
+// Release 应用发布
 func Release(c *gin.Context) {
 	var err error // 定义一个全局错误
+	envId, _ := c.GetPostForm("envId")
 	projectId, _ := c.GetPostForm("projectId")
-	publishType, _ := c.GetPostForm("type")
-	var projectIdList = []string{"1", "2"} // 项目id列表
-	var typeList = []string{"app", "pc"}   // 类型列表
-	// 判断是否是存在的项目
-	isExistProject := common.EleIsExistSlice(projectId, projectIdList)
-	if !isExistProject {
+	typeId, _ := c.GetPostForm("typeId")
+	if projectId == "" || typeId == "" || envId == "" {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    200,
 			"success": false,
-			"message": "发布失败: 项目不存在,请检查!",
+			"message": "发布失败: 参数缺失",
 		})
 		return
 	}
-	// 判断存在类型
-	isExistType := common.EleIsExistSlice(publishType, typeList)
-	if !isExistType {
+	// 根据项目类型id和项目id查询对应的数据
+	projectReleaseService := service.NewProjectReleaseService(projectId)
+	projectReleaseDto := projectReleaseService.GetProjectRelease(envId, typeId)
+	if projectReleaseDto.Id == 0 {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    200,
 			"success": false,
-			"message": "发布失败: 发布类型不存在,请检查!",
+			"message": "发布失败: 项目不存在",
 		})
 		return
 	}
-
 	file, err := c.FormFile("file")
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
@@ -57,8 +55,19 @@ func Release(c *gin.Context) {
 		return
 	}
 	tempFileName := uuid.NewV4().String()
+	executable, err := os.Getwd()
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": "发布失败!",
+		})
+		return
+	}
+	tempFilePath := executable + "/temp/" + tempFileName // 临时文件目录
+	tempFile := tempFilePath + "/" + file.Filename       //临时文件全路径
 	// 把文件保存到临时目录
-	err = c.SaveUploadedFile(file, "temp/"+tempFileName+"/"+file.Filename)
+	err = c.SaveUploadedFile(file, tempFile)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    200,
@@ -67,26 +76,8 @@ func Release(c *gin.Context) {
 		})
 		return
 	}
-
-	msg, err := common.ExecCommand(true, fmt.Sprintf("scripts/%s/%s/build", projectId, publishType), tempFileName, file.Filename)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"code":    200,
-			"success": false,
-			"message": "项目发布失败,失败原因1:" + err.Error(),
-		})
-		return
-	}
-	if msg != "打包成功" {
-		c.JSON(http.StatusOK, gin.H{
-			"code":    200,
-			"success": false,
-			"message": "项目发布失败,具体原因3:" + msg,
-		})
-		return
-	}
 	defer func() {
-		_, err = common.ExecCommand(true, "-c", "rm -rf temp/"+tempFileName+" && echo '移除成功'")
+		_, err = common.ExecCommand(true, "-c", "rm -rf "+tempFilePath+" && echo '移除成功'")
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"code":    200,
@@ -96,6 +87,32 @@ func Release(c *gin.Context) {
 			return
 		}
 	}()
+
+	// 执行的构建脚本路径需要在数据库配置好
+	split := strings.Split(projectReleaseDto.Params, ",")
+	command := []string{
+		projectReleaseDto.BuildScriptPath,
+		tempFilePath,
+	}
+	command = append(command, split...)
+	msg, err := common.ExecCommand(true, command...)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": "项目发布失败,失败原因1:" + err.Error(),
+		})
+		return
+	}
+	if msg != "项目发布成功" {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": "项目发布失败,具体原因3:" + msg,
+		})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"code":    200,
 		"success": true,

@@ -71,6 +71,10 @@ type Config struct {
 			PrivateKey string `json:"privateKey"` // 私钥
 		} `mapstructure:"rsa"`
 	} `mapstructure:"jwt"`
+	White struct {
+		Status      bool     `mapstructure:"status"`
+		WhiteIpList []string `mapstructure:"whiteIpList"`
+	} `mapstructure:"white"`
 }
 
 func InitLog() {

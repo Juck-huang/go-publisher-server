@@ -86,8 +86,15 @@ func NewHttpRouter() {
 	}
 
 	// 需要认证的组
-	authGroup := router.Group("/rest", middleware.AuthJwtToken())
+	authGroup := router.Group("/rest", middleware.WhiteAuth(), middleware.AuthJwtToken())
 	{
+		authGroup.GET("test", func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{
+				"code": http.StatusOK,
+				"msg":  "请求成功",
+			})
+			return
+		})
 		// 用户相关
 		userGroup := authGroup.Group("/user")
 		{
@@ -133,11 +140,17 @@ func NewHttpRouter() {
 				})
 			})
 		}
-		// 项目发布
-		projectGroup := authGroup.Group("/publish") // 项目组路由
+		// 发布管理
+		publishGroup := authGroup.Group("/publish") // 发布组路由
 		{
 			// 发布管理
-			projectGroup.POST("/release", Release)
+			publishGroup.POST("/release", Release)
+		}
+		// 项目管理
+		projectGroup := authGroup.Group("/project") // 项目组路由
+		{
+			// 项目管理
+			projectGroup.POST("/list", ProjectList)
 		}
 		// 数据库管理
 		databaseGroup := authGroup.Group("/database") // 数据库组路由
