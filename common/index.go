@@ -2,12 +2,13 @@ package common
 
 import (
 	"errors"
-	"hy.juck.com/go-publisher-server/config"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"sort"
 	"strings"
+
+	"hy.juck.com/go-publisher-server/config"
 )
 
 var (
@@ -25,7 +26,7 @@ func EleIsExistSlice(element string, sliceElement []string) bool {
 
 // ExecCommand 执行命令,分管道和标准输出
 func ExecCommand(isPip bool, command ...string) (string, error) {
-	G.Logger.Infof("执行的发布命令为：%s", command)
+	G.Logger.Infof("执行的命令为：%s", command)
 	cmd := exec.Command("/bin/bash", command...)
 	var msg string
 	if isPip {
@@ -49,11 +50,11 @@ func ExecCommand(isPip bool, command ...string) (string, error) {
 		}
 		defer stdout.Close()
 		splitBytes := strings.Split(string(outBytes), "\n")
-		G.Logger.Infof("执行发布命令结果:%s", splitBytes)
+		G.Logger.Infof("执行命令结果:%s", splitBytes)
 		if len(splitBytes) > 1 {
 			return splitBytes[len(splitBytes)-2], nil
 		} else {
-			return "", errors.New("发布失败")
+			return "", errors.New("执行命令失败")
 		}
 
 	} else {

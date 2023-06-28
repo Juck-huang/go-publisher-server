@@ -1,13 +1,14 @@
 package router
 
 import (
+	"net/http"
+	"os"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	uuid "github.com/satori/go.uuid"
 	"hy.juck.com/go-publisher-server/common"
 	"hy.juck.com/go-publisher-server/service"
-	"net/http"
-	"os"
-	"strings"
 )
 
 // Release 应用发布
@@ -40,20 +41,20 @@ func Release(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    200,
 			"success": false,
-			"message": "发布失败: 请上传项目压缩文件!",
+			"message": "发布失败: 请上传项目项目文件!",
 		})
 		return
 	}
-	// 判断文件类型是否是zip,目前只支持zip格式
-	fileIsRational := strings.HasSuffix(file.Filename, ".zip")
-	if !fileIsRational {
-		c.JSON(http.StatusOK, gin.H{
-			"code":    200,
-			"success": false,
-			"message": "发布失败: 请上传zip格式文件!",
-		})
-		return
-	}
+	// // 判断文件类型是否是zip,目前只支持zip格式
+	// fileIsRational := strings.HasSuffix(file.Filename, ".zip")
+	// if !fileIsRational {
+	// 	c.JSON(http.StatusOK, gin.H{
+	// 		"code":    200,
+	// 		"success": false,
+	// 		"message": "发布失败: 请上传zip格式文件!",
+	// 	})
+	// 	return
+	// }
 	tempFileName := uuid.NewV4().String()
 	executable, err := os.Getwd()
 	if err != nil {
@@ -64,7 +65,7 @@ func Release(c *gin.Context) {
 		})
 		return
 	}
-	tempFilePath := executable + "/temp/" + tempFileName // 临时文件目录
+	tempFilePath := executable + "/temp/" + tempFileName // 临时文件绝对目录
 	tempFile := tempFilePath + "/" + file.Filename       //临时文件全路径
 	// 把文件保存到临时目录
 	err = c.SaveUploadedFile(file, tempFile)
