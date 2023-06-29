@@ -1,6 +1,7 @@
 
 server:
   port: 8002
+  path: /aps-web
 
 ops: # 运维中需要用到的中间件
   mysql: # 需要操作的数据库

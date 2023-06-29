@@ -28,8 +28,10 @@ func NewHttpRouter() {
 	router.Use(cors.Default())
 	if G.C.Zap.Mode == "dev" {
 		gin.SetMode(gin.DebugMode)
-	} else {
+	} else if G.C.Zap.Mode == "pro" {
 		gin.SetMode(gin.ReleaseMode)
+	} else {
+		panic("启动格式不正确，应为dev(开发模式)或pro(生产模式)")
 	}
 	// 不需要认证的组
 	noAuthGroup := router.Group("")
@@ -38,9 +40,10 @@ func NewHttpRouter() {
 		noAuthGroup.StaticFile("/", path.Join("templates", "index.html"))
 		noAuthGroup.Static("/static/js", "templates/static/js")
 		noAuthGroup.Static("/static/css", "templates/static/css")
+		noAuthGroup.Static("/static/media", "templates/static/media")
 		noAuthGroup.StaticFile("manifest.json", path.Join("templates", "manifest.json"))
 		noAuthGroup.StaticFile("logo192.png", path.Join("templates", "logo192.png"))
-		noAuthGroup.POST("/login", func(c *gin.Context) {
+		noAuthGroup.POST(G.C.Server.Path+"/login", func(c *gin.Context) {
 			var requestDto login.RequestDto
 			err := c.ShouldBindJSON(&requestDto)
 			if err != nil {
@@ -86,7 +89,7 @@ func NewHttpRouter() {
 	}
 
 	// 需要认证的组
-	authGroup := router.Group("/rest", middleware.WhiteAuth(), middleware.AuthJwtToken())
+	authGroup := router.Group(G.C.Server.Path+"/rest", middleware.WhiteAuth(), middleware.AuthJwtToken())
 	{
 		authGroup.GET("test", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{

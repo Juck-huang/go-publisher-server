@@ -25,7 +25,8 @@ type Global struct {
 
 type Config struct {
 	Server struct {
-		Port int64 `mapstructure:"port"`
+		Port int64  `yml:"port"`
+		Path string `yaml:"port"` // 接口访问前缀
 	} `mapstructure:"server"`
 	Ops struct {
 		Mysql struct {
