@@ -20,3 +20,6 @@ CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build
 # rsa加密
 `生成私钥命令：openssl genrsa -out rsa_1024_priv.pem 1024`  
 `生成公钥命令：openssl rsa -pubout -in rsa_1024_priv.pem -out rsa_1024_pub.pem`
+
+# bug
+`生成的token在换了服务器再去使用该token访问服务器应该是失效的，需要跟服务器做绑定`

@@ -151,6 +151,10 @@ func NewHttpRouter() {
 		{
 			// 项目管理
 			projectGroup.POST("/list", ProjectList)
+			// 获取环境列表
+			projectGroup.POST("/getProjectEnvList", ProjectEnvList)
+			// 获取项目类型
+			projectGroup.POST("/getProjectTypeList", ProjectTypeList)
 		}
 		// 数据库管理
 		databaseGroup := authGroup.Group("/database") // 数据库组路由

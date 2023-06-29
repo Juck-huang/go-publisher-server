@@ -7,7 +7,7 @@ type ProjectType struct {
 	gorm.Model
 	Name      string `gorm:"type:varchar(155);comment:类型名称"`
 	ProjectId int64  `gorm:"type:integer(50);comment:项目id"`
-	ParentId  int64  `gorm:"type:integer(50);comment:父id"`
+	ParentId  int64  `gorm:"type:integer(50);comment:父id" json:"parentId,omitempty"`
 	IsLeaf    int64  `gorm:"type:boolean;comment:是否是叶子节点0.否1.是"`
 	TreeId    string `gorm:"type:varchar(255);comment:树id"`
 	TreeLevel int64  `gorm:"type:integer(20);comment:树级别"`

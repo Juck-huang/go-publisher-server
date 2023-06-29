@@ -12,12 +12,23 @@ func NewProjectTypeService() *ProjectTypeService {
 	return &ProjectTypeService{}
 }
 
-func (o *ProjectTypeService) GetProjectType(projectId string, projectTypeId string) (projectTypeDto projectType.ResponseDto) {
-	var projectType = model.ProjectType{}
-	G.DB.Debug().Where("id = ? and project_id = ?", projectTypeId, projectId).First(&projectType)
-	projectTypeDto.Id = projectType.ID
-	projectTypeDto.Name = projectType.Name
-	projectTypeDto.ProjectId = projectType.ProjectId
-	//projectTypeDto.BuildScriptPath = projectType.BuildScriptPath
-	return projectTypeDto
+func (o *ProjectTypeService) GetByProjectId(projectId int64) []projectType.ResponseDto {
+	var projectTypes []model.ProjectType
+	var projectTypeDtos []projectType.ResponseDto
+	G.DB.Debug().Where("project_id = ?", projectId).Find(&projectTypes)
+	if len(projectTypes) > 0 {
+		for _, pt := range projectTypes {
+			p := projectType.ResponseDto{
+				Id:        pt.ID,
+				Name:      pt.Name,
+				ProjectId: pt.ProjectId,
+				TreeId:    pt.TreeId,
+				ParentId:  pt.ParentId,
+				TreeLevel: pt.TreeLevel,
+				IsLeaf:    pt.IsLeaf,
+			}
+			projectTypeDtos = append(projectTypeDtos, p)
+		}
+	}
+	return projectTypeDtos
 }
