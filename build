@@ -1,6 +1,7 @@
 #!/bin/bash
 go build -tags release -ldflags "-w -s" -o go-publisher/go-publisher
-cp -r templates/* go-publisher
+mkdir go-publisher/templates
+cp -r templates/* go-publisher/templates
 cp start go-publisher
 cp config.yaml go-publisher
 mkdir go-publisher/temp
