@@ -34,7 +34,7 @@ func NewHttpRouter() {
 		panic("启动格式不正确，应为dev(开发模式)或pro(生产模式)")
 	}
 	// 不需要认证的组
-	noAuthGroup := router.Group("")
+	noAuthGroup := router.Group("aps")
 	{
 		// 代理静态文件
 		noAuthGroup.StaticFile("/", path.Join("templates", "index.html"))
