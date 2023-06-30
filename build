@@ -1,9 +1,27 @@
 #!/bin/bash
-go build -tags release -ldflags "-w -s" -o go-publisher/go-publisher
-mkdir go-publisher/templates
-cp -r templates/* go-publisher/templates
-cp start go-publisher
-cp config.yaml go-publisher
-mkdir go-publisher/temp
-#mkdir go-publisher/db && cp db/server.db go-publisher/db
-tar -zcf go-publisher.tar.gz go-publisher && rm -rf go-publisher
+echo "开始构建go-publisher二进制文件"
+go build -tags release -ldflags "-w -s" -o go-publisher/publisher
+if [ $? -eq 0 ];then
+  echo "构建二进制成功,开始后续操作"
+  sleep 3
+else
+  echo "构建失败"
+  exit -1
+fi
+echo "开始创建需要的文件夹"
+mkdir -p go-publisher/templates
+mkdir -p go-publisher/temp
+sleep 2
+echo "开始复制需要的文件"
+cp -r templates/* go-publisher/templates &&
+cp start go-publisher &&
+cp config.yaml go-publisher &&
+if [ $? -eq 0 ];then
+  echo "复制打包后的二进制文件成功,开始压缩操作"
+  sleep 2
+else
+  echo "构建失败"
+  exit -1
+fi
+
+#tar -zcf go-publisher.tar.gz go-publisher && rm -rf go-publisher && echo "构建完成"
