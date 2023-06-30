@@ -1,2 +1,2 @@
 #!/bin/bash
-nohup ./go-publisher 2>&1 &
+nohup ./publisher >/dev/null 2>&1 &

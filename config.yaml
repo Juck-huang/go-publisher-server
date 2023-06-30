@@ -9,8 +9,8 @@ ops: # 运维中需要用到的中间件
     port: 3306  # 数据库端口
     username: root
     password: cjxx2022
-#    backUpPath: /root/sql_bak/temp  # 当前服务器备份保存地址
-    backUpPath: /Users/mac/Downloads/sql_bak  # 本地备份保存地址
+    backUpPath: /root/sql_bak/temp  # 当前服务器备份保存地址
+    #backUpPath: /Users/mac/Downloads/sql_bak  # 本地备份保存地址
     ignoreDbs: ["information_schema", "sys", "performance_schema", "mysql"] # 需要忽略的表
 
 application: # 应用自身需要使用的中间件
