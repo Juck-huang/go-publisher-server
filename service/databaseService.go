@@ -77,20 +77,20 @@ func (o *DatabaseService) HandleTotalMysqlDump(tempPath string, ignoreTables ...
 }
 
 // 执行命令
-func (o *DatabaseService) execCommand(commondName string, commond string) ([]string, error) {
-	commond += " && echo $?"
-	G.Logger.Infof("[%s]正在执行命令: [%s]", commondName, commond)
+func (o *DatabaseService) execCommand(commandName string, command string) ([]string, error) {
+	command += " && echo $?"
+	G.Logger.Infof("[%s]正在执行命令: [%s]", commandName, command)
 	// 开始执行脚本
-	cmd := exec.Command("bash", "-c", commond)
+	cmd := exec.Command("bash", "-c", command)
 	out, err := cmd.CombinedOutput()
 	outStr := strings.TrimSpace(string(out))
 	strs := strings.Split(outStr, "\n")
-	newArr := []string{}
+	var newArr []string
 	if err != nil {
-		G.Logger.Errorf("[%s]执行脚本失败，具体状态:[%s], 失败原因: [%s]", commondName, err.Error(), strs)
+		G.Logger.Errorf("[%s]执行脚本失败，具体状态:[%s], 失败原因: [%s]", commandName, err.Error(), strs)
 		return newArr, errors.New(fmt.Sprintf("执行sql脚本失败,具体原因：%s", strs))
 	}
-	G.Logger.Infof("[%s]脚本执行结果,状态: %s", commondName, outStr)
+	G.Logger.Infof("[%s]脚本执行结果,状态: %s", commandName, outStr)
 	// 如果只有一位则直接判断
 	if len(strs) == 1 && strs[0] == "0" {
 		return strs, nil
@@ -137,18 +137,21 @@ func (o *DatabaseService) SingleExportTables(tempPath string, tableNames ...stri
 
 // DynamicExecSql 动态执行sql
 func (o *DatabaseService) DynamicExecSql(sql string) (map[string]any, error) {
-	command := fmt.Sprintf("mysql -u%s -p%s -h%s -P%s %s -e \"%s\"", G.C.Ops.Mysql.Username,
+	command := fmt.Sprintf("mysql -u%s -p'%s' -h%s -P%s %s -e \"%s\"", G.C.Ops.Mysql.Username,
 		G.C.Ops.Mysql.Password, G.C.Ops.Mysql.Host, G.C.Ops.Mysql.Port, o.DbName, sql)
 	resultList, err := o.execCommand("动态执行sql", command)
 	var dataMap = make(map[string]any, 1)
 	if err != nil {
+		// 如果有错误，则返回格式还是之前的格式
 		// G.Logger.Errorf("动态执行sql脚本执行失败，失败原因:[%s]", err.Error())
+		dataMap["title"] = []string{"err_msg"}
+		dataMap["content"] = []any{[]string{err.Error()}}
 		return dataMap, err
 	}
 
-	dataContentList := []any{}
+	var dataContentList []any
 	for i, result := range resultList {
-		dataList := []string{}
+		var dataList []string
 		strList := strings.Split(result, "\t")
 		// 说明是标题
 		if i == 0 {
@@ -167,7 +170,7 @@ func (o *DatabaseService) DynamicExecSql(sql string) (map[string]any, error) {
 // GetDbAndTableList 获取可操作的数据库列表
 func (o *DatabaseService) GetDbAndTableList(ignoreDbs []string) (map[string]any, error) {
 	// sql:mysql -uroot -pcjxx2022 -h127.0.0.1 -P3306 -e "SHOW DATABASES WHERE \`Database\` NOT IN ('information_schema', 'sys', 'performance_schema', 'mysql')"
-	command := fmt.Sprintf("mysql -u%s -p%s -h%s -P%s -e \"SHOW DATABASES WHERE \\`Database\\` NOT IN (", G.C.Ops.Mysql.Username, G.C.Ops.Mysql.Password,
+	command := fmt.Sprintf("mysql -u%s -p'%s' -h%s -P%s -e \"SHOW DATABASES WHERE \\`Database\\` NOT IN (", G.C.Ops.Mysql.Username, G.C.Ops.Mysql.Password,
 		G.C.Ops.Mysql.Host, G.C.Ops.Mysql.Port)
 	for i, db := range ignoreDbs {
 		if i == len(ignoreDbs)-1 {
@@ -200,7 +203,7 @@ func (o *DatabaseService) GetDbAndTableList(ignoreDbs []string) (map[string]any,
 
 func (o *DatabaseService) __getTableList(dbName string) ([]string, error) {
 	// mysql -uroot -pcjxx2022 -h127.0.0.1 -P3306 stec_bytd -e "SHOW TABLES;"
-	command := fmt.Sprintf("mysql -u%s -p%s -h%s -P%s  %s -e  \"SHOW TABLES;\"", G.C.Ops.Mysql.Username,
+	command := fmt.Sprintf("mysql -u%s -p'%s' -h%s -P%s  %s -e  \"SHOW TABLES;\"", G.C.Ops.Mysql.Username,
 		G.C.Ops.Mysql.Password, G.C.Ops.Mysql.Host, G.C.Ops.Mysql.Port, dbName)
 	dataList, err := o.execCommand("获取数据表列表", command)
 	if err != nil {

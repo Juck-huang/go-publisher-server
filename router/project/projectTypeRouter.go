@@ -1,4 +1,4 @@
-package router
+package project
 
 import (
 	"github.com/gin-gonic/gin"
@@ -6,8 +6,8 @@ import (
 	"net/http"
 )
 
-// ProjectEnvList 通过项目id获取项目类型列表
-func ProjectEnvList(c *gin.Context) {
+// ProjectTypeList 通过项目id获取项目类型列表
+func ProjectTypeList(c *gin.Context) {
 	var projectT struct {
 		ProjectId int64 `json:"projectId"`
 	}
@@ -30,17 +30,17 @@ func ProjectEnvList(c *gin.Context) {
 		})
 		return
 	}
-	projectEnvService := service.NewProjectEnvService()
-	projectEnvs := projectEnvService.GetProjectEnvList(projectT.ProjectId)
+	projectTypeService := service.NewProjectTypeService()
+	projects := projectTypeService.GetByProjectId(projectT.ProjectId)
 	var result any
-	if len(projectEnvs) > 0 {
-		result = projectEnvs
+	if len(projects) > 0 {
+		result = projects
 	} else {
 		result = []string{}
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"code":    http.StatusOK,
-		"message": "获取项目环境列表数据成功",
+		"message": "获取项目类型列表数据成功",
 		"result":  result,
 	})
 	return

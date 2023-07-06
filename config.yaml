@@ -5,13 +5,13 @@ server:
 
 ops: # 运维中需要用到的中间件
   mysql: # 需要操作的数据库
-    host: 172.168.20.157
+    host: 172.168.20.160
     port: 3306  # 数据库端口
     username: root
-    password: cjxx2022
-    backUpPath: /root/sql_bak/temp  # 当前服务器备份保存地址
-    #backUpPath: /Users/mac/Downloads/sql_bak  # 本地备份保存地址
-    ignoreDbs: ["information_schema", "sys", "performance_schema", "mysql"] # 需要忽略的表
+    password: Cjxx2023..&
+#    backUpPath: /root/sql_bak/temp  # 当前服务器备份保存地址
+    backUpPath: /Users/mac/Downloads/sql_bak  # 本地备份保存地址
+    ignoreDbs: ["information_schema", "sys", "performance_schema", "mysql", "aps"] # 需要忽略的表
 
 application: # 应用自身需要使用的中间件
   redis: # redis配置
@@ -34,7 +34,7 @@ zap:
   max-backups: 5
   max-age: 30
   compress:  true
-  mode: dev
+  mode: dev # dev开发模式，pro生产模式
   level: info
 
 jwt: # jwt授权认证
