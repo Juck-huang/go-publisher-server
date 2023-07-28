@@ -2,10 +2,11 @@ package config
 
 import (
 	"fmt"
-
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"hy.juck.com/go-publisher-server/model"
+	databaseTable "hy.juck.com/go-publisher-server/model/database"
+	"hy.juck.com/go-publisher-server/model/project"
+	"hy.juck.com/go-publisher-server/model/user"
 )
 
 func InitDB() {
@@ -36,13 +37,15 @@ func initMysql() {
 	G.DB = database
 	// 自动迁移表
 	database.AutoMigrate(
-		&model.User{},
-		&model.DatabaseOperationLog{},
-		&model.Project{},
-		&model.DatabaseOperationLog{},
-		&model.ProjectRelease{},
-		&model.ProjectType{},
-		&model.ProjectEnv{},
+		&user.User{},
+		&user.Privilege{},
+		&user.UserPrivilege{},
+		&project.Project{},
+		&databaseTable.DatabaseOperationLog{},
+		&project.ProjectRelease{},
+		&project.ProjectType{},
+		&project.ProjectEnv{},
+		&project.ProjectDir{},
 	)
 	G.Logger.Infof("初始化数据库连接成功")
 }

@@ -2,7 +2,7 @@ package service
 
 import (
 	"hy.juck.com/go-publisher-server/dto/project"
-	"hy.juck.com/go-publisher-server/model"
+	project2 "hy.juck.com/go-publisher-server/model/project"
 )
 
 type ProjectService struct {
@@ -14,7 +14,7 @@ func NewProjectService() *ProjectService {
 
 // GetProjectList 获取项目列表
 func (o *ProjectService) GetProjectList() (projectDtos []project.ResponseDto) {
-	var projects []model.Project
+	var projects []project2.Project
 	//var projectEnvs []model.ProjectEnv
 	G.DB.Debug().Find(&projects)
 	//G.DB.Debug().Find(&projectEnvs)

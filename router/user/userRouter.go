@@ -10,12 +10,33 @@ import (
 
 // GetUserInfo 获取用户信息
 func GetUserInfo(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"code":    http.StatusOK,
-		"message": "获取用户数据成功",
-		"success": true,
-		"result":  map[string]any{},
-	})
+	username, exists := c.Get("username")
+	if exists {
+		userService := service.NewUserService()
+		userDto, err := userService.GetUserInfo(username.(string))
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"code":    http.StatusOK,
+				"message": err.Error(),
+				"success": false,
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"message": "获取用户信息成功",
+			"success": true,
+			"result":  userDto,
+		})
+		return
+	}
+	{
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"message": "获取用户信息失败",
+			"success": false,
+		})
+	}
 }
 
 // Logout 登出
@@ -53,6 +74,8 @@ func Logout(c *gin.Context) {
 
 // Login 登录
 func Login(c *gin.Context) {
+	// 需要实现用户连续登录5次失败后，账户锁定，在第一次登录错误后数据存入redis（不设置过期），key格式是[用户名_login_error],值是5，
+	// 后续每登录错误一次，值减1，直到值减为0后，锁定该账号，并从redis中删除该key
 	var requestDto login.RequestDto
 	err := c.ShouldBindJSON(&requestDto)
 	if err != nil {
@@ -70,7 +93,9 @@ func Login(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    200,
 			"success": false,
-			"result":  map[string]any{},
+			"result": map[string]any{
+				"message": err.Error(),
+			},
 			"message": err.Error(),
 		})
 		return

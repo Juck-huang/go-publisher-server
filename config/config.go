@@ -26,16 +26,20 @@ type Global struct {
 type Config struct {
 	Server struct {
 		Port int64  `yml:"port"`
-		Path string `yaml:"port"` // 接口访问前缀
+		Path string `yml:"port"` // 接口访问前缀
 	} `mapstructure:"server"`
 	Ops struct {
 		Mysql struct {
-			Host       string   `json:"host"`
-			Port       string   `json:"port"`
-			Username   string   `json:"username"`
-			Password   string   `json:"password"`
-			BackUpPath string   `json:"backUpPath"`
-			IgnoreDbs  []string `json:"ignoreDbs"` // 忽略的数据库，如系统数据库
+			LoginName struct {
+				WriteName string `mapstructure:"writeName"`
+				ReadName  string `mapstructure:"readName"`
+			} `mapstructure:"loginName"` // 登录名称
+			//Host       string   `json:"host"`
+			//Port       string   `json:"port"`
+			//Username   string   `json:"username"`
+			//Password   string   `json:"password"`
+			BackUpPath string   `mapstructure:"backUpPath"`
+			IgnoreDbs  []string `mapstructure:"ignoreDbs"` // 忽略的数据库，如系统数据库
 		}
 	} `mapstructure:"ops"`
 	Application struct { // 应用自身需要使用的中间件

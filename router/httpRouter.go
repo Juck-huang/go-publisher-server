@@ -7,7 +7,7 @@ import (
 	"hy.juck.com/go-publisher-server/config"
 	"hy.juck.com/go-publisher-server/middleware"
 	database2 "hy.juck.com/go-publisher-server/router/database"
-	"hy.juck.com/go-publisher-server/router/fileManage"
+	"hy.juck.com/go-publisher-server/router/fileManager"
 	"hy.juck.com/go-publisher-server/router/project"
 	"hy.juck.com/go-publisher-server/router/publish"
 	"hy.juck.com/go-publisher-server/router/user"
@@ -91,10 +91,28 @@ func NewHttpRouter() {
 				databaseGroup.POST("/execSqlFile", database2.ExecSqlFile)
 			}
 			// 文件管理
-			fileManageGroup := authGroup.Group("/fileManage") // 文件管理组路由
+			fileManageGroup := authGroup.Group("/fileManager") // 文件管理组路由
 			{
+				// 获取项目信息列表
+				fileManageGroup.POST("/getProjectList", fileManager.GetProjectList)
+				// 获取项目文件列表
+				fileManageGroup.POST("/getProjectFileList", fileManager.GetProjectFileList)
+				// 上传项目文件，单独上传
+				fileManageGroup.POST("/uploadProjectFile", fileManager.UploadProjectFile)
+				// 下载项目文件,包括项目文件夹，单独下载
+				fileManageGroup.POST("/downloadProjectFile", fileManager.DownloadProjectFile)
 				// 读取文件信息
-				fileManageGroup.POST("/getFileContent", fileManage.GetFileContent)
+				fileManageGroup.POST("/getFileContent", fileManager.GetFileContent)
+				// 保存文件内容
+				fileManageGroup.POST("/saveFileContent", fileManager.SaveFileContent)
+				// 删除文件或文件夹
+				fileManageGroup.POST("/removeFile", fileManager.RemoveFile)
+				// 新建文件夹
+				fileManageGroup.POST("/addFolder", fileManager.AddFolder)
+				// 重命名文件夹或文件
+				fileManageGroup.POST("/reNameFile", fileManager.ReNameFile)
+				// 移动或复制文件或文件夹
+				fileManageGroup.POST("/moveOrCopyFile", fileManager.MoveOrCopyFile)
 			}
 		}
 	}

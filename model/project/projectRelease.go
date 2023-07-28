@@ -1,4 +1,4 @@
-package model
+package project
 
 import "gorm.io/gorm"
 

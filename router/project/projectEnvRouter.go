@@ -31,7 +31,7 @@ func ProjectEnvList(c *gin.Context) {
 		return
 	}
 	projectEnvService := service.NewProjectEnvService()
-	projectEnvs := projectEnvService.GetProjectEnvList(projectT.ProjectId)
+	projectEnvs := projectEnvService.GetProjectEnvListByPId(projectT.ProjectId)
 	var result any
 	if len(projectEnvs) > 0 {
 		result = projectEnvs

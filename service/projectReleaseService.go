@@ -2,7 +2,7 @@ package service
 
 import (
 	"hy.juck.com/go-publisher-server/dto/projectRelease"
-	"hy.juck.com/go-publisher-server/model"
+	"hy.juck.com/go-publisher-server/model/project"
 )
 
 type ProjectReleaseService struct {
@@ -16,7 +16,7 @@ func NewProjectReleaseService(projectId string) *ProjectReleaseService {
 }
 
 func (o *ProjectReleaseService) GetProjectRelease(projectEnvId string, projectTypeId string) (projectReleaseDto projectRelease.ResponseDto) {
-	var projectRelease = model.ProjectRelease{}
+	var projectRelease = project.ProjectRelease{}
 	G.DB.Debug().Where("project_id = ? and project_env_id = ? and project_type_id = ?", o.ProjectId, projectEnvId, projectTypeId).First(&projectRelease)
 	projectReleaseDto.Id = projectRelease.ID
 	projectReleaseDto.ProjectId = projectRelease.ProjectId

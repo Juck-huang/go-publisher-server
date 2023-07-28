@@ -16,7 +16,7 @@ var (
 	G = config.G
 )
 
-// ExportTotal 导出所有
+// ExportTotal 导出或备份所有表
 func ExportTotal(c *gin.Context) {
 	var totalDto database.TotalDto
 	err := c.ShouldBindJSON(&totalDto)
@@ -199,7 +199,7 @@ func SingleExport(c *gin.Context) {
 	c.FileAttachment(zipTempFilePath, zipFileName)
 }
 
-// DynamicSql 动态执行sql
+// DynamicSql 动态执行sql(需加权限控制)
 func DynamicSql(c *gin.Context) {
 	var dynamicExecDto database.DynamicExecDto
 	err := c.BindJSON(&dynamicExecDto)
@@ -233,7 +233,16 @@ func DynamicSql(c *gin.Context) {
 	// 动态执行sql
 	// 首先需要先移除sql多余的空格
 	dyncSql := strings.TrimSpace(dynamicExecDto.Sql)
-	resultList, err := databaseService.DynamicExecSql(dyncSql)
+	username, exists := c.Get("username")
+	if !exists {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": "执行动态sql失败：当前用户不存在",
+		})
+		return
+	}
+	resultList, err := databaseService.DynamicExecSql(dyncSql, username.(string))
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    200,
@@ -283,7 +292,7 @@ func GetDbAndTableList(c *gin.Context) {
 	})
 }
 
-// ExecSqlFile 执行sql文件
+// ExecSqlFile 执行sql文件(需加权限控制)
 func ExecSqlFile(c *gin.Context) {
 	dbName, flag := c.GetPostForm("dbName")
 	if !flag {
@@ -326,19 +335,29 @@ func ExecSqlFile(c *gin.Context) {
 		})
 		return
 	}
+	defer os.RemoveAll("temp/" + tempFileName)
 	databaseService := service.NewDatabaseService(dbName)
-	err = databaseService.ExecSqlFile(tempFilePath)
+	username, exists := c.Get("username")
+	if !exists {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": "执行sql失败：获取当前用户信息失败",
+		})
+		return
+	}
+	err = databaseService.ExecSqlFile(tempFilePath, username.(string))
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    200,
 			"success": false,
-			"message": err,
+			"message": err.Error(),
 		})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"code":    200,
 		"success": true,
-		"message": "执行sql文件成功",
+		"message": "执行sql脚本成功",
 	})
 }

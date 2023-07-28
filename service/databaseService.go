@@ -3,13 +3,15 @@ package service
 import (
 	"errors"
 	"fmt"
+	user2 "hy.juck.com/go-publisher-server/model/user"
 	"os"
 	"os/exec"
 	"strings"
 )
 
 type DatabaseService struct {
-	DbName string
+	DbName      string
+	dbPrivilege string
 }
 
 func NewDatabaseService(dbName string) *DatabaseService {
@@ -60,8 +62,9 @@ func (o *DatabaseService) CopyFile(originFilePath string, targetFilePath string)
 // HandleTotalMysqlDump HandleMysqlDump 导出或备份整个数据库
 func (o *DatabaseService) HandleTotalMysqlDump(tempPath string, ignoreTables ...string) error {
 	// 执行脚本导出数据库
-	exportScript := "source /etc/profile && mysqldump -h" + G.C.Ops.Mysql.Host + " -P" + G.C.Ops.Mysql.Port + " " +
-		"-u" + G.C.Ops.Mysql.Username + " -p" + G.C.Ops.Mysql.Password + " " + o.DbName
+	//exportScript := "mysqldump -h" + G.C.Ops.Mysql.Host + " -P" + G.C.Ops.Mysql.Port + " " +
+	//	"-u" + G.C.Ops.Mysql.Username + " -p'" + G.C.Ops.Mysql.Password + "' " + o.DbName
+	exportScript := fmt.Sprintf("mysqldump --login-path=%s --single-transaction %s", G.C.Ops.Mysql.LoginName.ReadName, o.DbName)
 	if len(ignoreTables) > 0 {
 		for _, ignoreTable := range ignoreTables {
 			exportScript += " --ignore-table=" + o.DbName + "." + ignoreTable
@@ -90,12 +93,12 @@ func (o *DatabaseService) execCommand(commandName string, command string) ([]str
 		G.Logger.Errorf("[%s]执行脚本失败，具体状态:[%s], 失败原因: [%s]", commandName, err.Error(), strs)
 		return newArr, errors.New(fmt.Sprintf("执行sql脚本失败,具体原因：%s", strs))
 	}
-	G.Logger.Infof("[%s]脚本执行结果,状态: %s", commandName, outStr)
+	G.Logger.Infof("[%s]脚本执行结果,状态:[ %s]", commandName, outStr)
 	// 如果只有一位则直接判断
 	if len(strs) == 1 && strs[0] == "0" {
 		return strs, nil
 	}
-	newArr = append(newArr, strs[1:len(strs)-1]...)
+	newArr = append(newArr, strs[0:len(strs)-1]...)
 	// 判断数组最后一位是否是0，为0则代表脚本执行成功
 	if strs[len(strs)-1] == "0" {
 		return newArr, nil
@@ -118,8 +121,7 @@ func (o *DatabaseService) ZipFile(currentPath string, originPath string, targetP
 // SingleExportTables 单独导出多个表
 func (o *DatabaseService) SingleExportTables(tempPath string, tableNames ...string) error {
 	// mysqldump -h127.0.0.1 -P3306 -uroot -p123456 stec-cdsa --ignore-table=stec-cdsa.sys_log > cdsa
-	command := fmt.Sprintf("mysqldump -h%s -P%s -u%s -p%s %s", G.C.Ops.Mysql.Host, G.C.Ops.Mysql.Port,
-		G.C.Ops.Mysql.Username, G.C.Ops.Mysql.Password, o.DbName)
+	command := fmt.Sprintf("mysqldump --login-path=%s --single-transaction %s", G.C.Ops.Mysql.LoginName.ReadName, o.DbName)
 	if len(tableNames) > 0 {
 		command += " --tables"
 		for _, tableName := range tableNames {
@@ -136,17 +138,27 @@ func (o *DatabaseService) SingleExportTables(tempPath string, tableNames ...stri
 }
 
 // DynamicExecSql 动态执行sql
-func (o *DatabaseService) DynamicExecSql(sql string) (map[string]any, error) {
-	command := fmt.Sprintf("mysql -u%s -p'%s' -h%s -P%s %s -e \"%s\"", G.C.Ops.Mysql.Username,
-		G.C.Ops.Mysql.Password, G.C.Ops.Mysql.Host, G.C.Ops.Mysql.Port, o.DbName, sql)
-	resultList, err := o.execCommand("动态执行sql", command)
+func (o *DatabaseService) DynamicExecSql(sql string, username string) (map[string]any, error) {
+	//command := fmt.Sprintf("mysql -u%s -p'%s' -h%s -P%s %s -e \"%s\"", G.C.Ops.Mysql.Username,
+	//	G.C.Ops.Mysql.Password, G.C.Ops.Mysql.Host, G.C.Ops.Mysql.Port, o.DbName, sql)
 	var dataMap = make(map[string]any, 1)
+	err := o.SetDbPrivilege(username)
+	if err != nil {
+		return dataMap, err
+	}
+	// 从数据库获取当前登录用户数据库的权限,若该用户同时包含读和写权限，则返回写权限，否则就是单独的权限
+	sql = strings.ReplaceAll(sql, "\"", "\\\"")
+	command := fmt.Sprintf("mysql --login-path=%s %s -e \"%s\"", o.dbPrivilege, o.DbName, sql)
+	resultList, err := o.execCommand("动态执行sql", command)
 	if err != nil {
 		// 如果有错误，则返回格式还是之前的格式
-		// G.Logger.Errorf("动态执行sql脚本执行失败，失败原因:[%s]", err.Error())
 		dataMap["title"] = []string{"err_msg"}
-		dataMap["content"] = []any{[]string{err.Error()}}
-		return dataMap, err
+		var errInfo = err.Error()
+		if strings.Contains(err.Error(), "1142") {
+			errInfo = "您没有操作权限"
+		}
+		dataMap["content"] = []any{[]string{errInfo}}
+		return dataMap, errors.New(errInfo)
 	}
 
 	var dataContentList []any
@@ -170,8 +182,7 @@ func (o *DatabaseService) DynamicExecSql(sql string) (map[string]any, error) {
 // GetDbAndTableList 获取可操作的数据库列表
 func (o *DatabaseService) GetDbAndTableList(ignoreDbs []string) (map[string]any, error) {
 	// sql:mysql -uroot -pcjxx2022 -h127.0.0.1 -P3306 -e "SHOW DATABASES WHERE \`Database\` NOT IN ('information_schema', 'sys', 'performance_schema', 'mysql')"
-	command := fmt.Sprintf("mysql -u%s -p'%s' -h%s -P%s -e \"SHOW DATABASES WHERE \\`Database\\` NOT IN (", G.C.Ops.Mysql.Username, G.C.Ops.Mysql.Password,
-		G.C.Ops.Mysql.Host, G.C.Ops.Mysql.Port)
+	command := fmt.Sprintf("mysql --login-path=%s -e \"SHOW DATABASES WHERE \\`Database\\` NOT IN (", G.C.Ops.Mysql.LoginName.ReadName)
 	for i, db := range ignoreDbs {
 		if i == len(ignoreDbs)-1 {
 			command += "'" + db + "')\""
@@ -203,8 +214,7 @@ func (o *DatabaseService) GetDbAndTableList(ignoreDbs []string) (map[string]any,
 
 func (o *DatabaseService) __getTableList(dbName string) ([]string, error) {
 	// mysql -uroot -pcjxx2022 -h127.0.0.1 -P3306 stec_bytd -e "SHOW TABLES;"
-	command := fmt.Sprintf("mysql -u%s -p'%s' -h%s -P%s  %s -e  \"SHOW TABLES;\"", G.C.Ops.Mysql.Username,
-		G.C.Ops.Mysql.Password, G.C.Ops.Mysql.Host, G.C.Ops.Mysql.Port, dbName)
+	command := fmt.Sprintf("mysql --login-path=%s %s -e  \"SHOW TABLES;\"", G.C.Ops.Mysql.LoginName.ReadName, dbName)
 	dataList, err := o.execCommand("获取数据表列表", command)
 	if err != nil {
 		return dataList, err
@@ -216,14 +226,62 @@ func (o *DatabaseService) __getTableList(dbName string) ([]string, error) {
 }
 
 // ExecSqlFile 执行sql文件
-func (o *DatabaseService) ExecSqlFile(tempPath string) error {
+func (o *DatabaseService) ExecSqlFile(tempPath string, username string) error {
 	// mysql -uroot  -P3306 -p123456 -h127.0.0.1 数据库名称 < sql脚本全路径
-	command := fmt.Sprintf("mysql -u%s -P%s -p%s -h%s %s < %s", G.C.Ops.Mysql.Username, G.C.Ops.Mysql.Port,
-		G.C.Ops.Mysql.Password, G.C.Ops.Mysql.Host, o.DbName, tempPath)
-	_, err := o.execCommand("执行sql文件", command)
+	err := o.SetDbPrivilege(username)
 	if err != nil {
-		G.Logger.Errorf("执行sql文件失败,失败原因:[%s]", err.Error())
-		return errors.New("执行sql文件失败")
+		return err
 	}
+	command := fmt.Sprintf("mysql --login-path=%s %s < %s", o.dbPrivilege, o.DbName, tempPath)
+	_, err = o.execCommand("执行sql文件", command)
+	if err != nil {
+		//G.Logger.Errorf("执行sql文件失败,失败原因:[%s]", err.Error())
+		var errInfo = err.Error()
+		if strings.Contains(err.Error(), "1142") {
+			errInfo = "您没有操作权限"
+		}
+		return errors.New("执行sql脚本失败：" + errInfo)
+	}
+	return nil
+}
+
+// SetDbPrivilege 设置数据库权限
+func (o *DatabaseService) SetDbPrivilege(username string) error {
+	// 从数据库获取当前登录用户数据库的权限,若该用户同时包含读和写权限，则返回写权限，否则就是单独的权限
+	var user user2.User
+	G.DB.Where("username = ?", username).First(&user)
+	if user.ID == 0 {
+		return errors.New("当前用户不存在")
+	}
+	var privilegeCodes []string
+	G.DB.Debug().Table("user_privilege").Select("privilege.code as privilegeCode").
+		Joins("left join privilege on privilege.id = user_privilege.privilege_id").
+		Where("user_privilege.user_id = ? and privilege.type = 1", user.ID).Scan(&privilegeCodes)
+	var loginPath string
+	if len(privilegeCodes) == 0 {
+		return errors.New("您没有操作权限")
+	} else if len(privilegeCodes) == 1 {
+		switch privilegeCodes[0] {
+		case G.C.Ops.Mysql.LoginName.ReadName:
+			loginPath = G.C.Ops.Mysql.LoginName.ReadName
+		case G.C.Ops.Mysql.LoginName.WriteName:
+			loginPath = G.C.Ops.Mysql.LoginName.WriteName
+		default:
+			return errors.New("您没有操作权限")
+		}
+	} else if len(privilegeCodes) == 2 {
+		for _, privilegeCode := range privilegeCodes {
+			if G.C.Ops.Mysql.LoginName.ReadName == privilegeCode {
+				loginPath = G.C.Ops.Mysql.LoginName.ReadName
+				continue
+			}
+			if G.C.Ops.Mysql.LoginName.WriteName == privilegeCode {
+				// 说明是写权限
+				loginPath = G.C.Ops.Mysql.LoginName.WriteName
+				break
+			}
+		}
+	}
+	o.dbPrivilege = loginPath
 	return nil
 }
