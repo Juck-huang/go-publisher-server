@@ -12,10 +12,10 @@ func NewProjectTypeService() *ProjectTypeService {
 	return &ProjectTypeService{}
 }
 
-func (o *ProjectTypeService) GetProjectTypeList() []projectType.ResponseDto {
+func (o *ProjectTypeService) GetProjectTypeListByPIds(projectIds []uint) []projectType.ResponseDto {
 	var projectTypes []project.ProjectType
 	var projectTypeDtos []projectType.ResponseDto
-	G.DB.Debug().Find(&projectTypes)
+	G.DB.Debug().Where("project_id in ?", projectIds).Find(&projectTypes)
 	if len(projectTypes) > 0 {
 		for _, pt := range projectTypes {
 			p := projectType.ResponseDto{

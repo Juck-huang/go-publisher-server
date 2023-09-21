@@ -40,6 +40,8 @@ func initMysql() {
 		&user.User{},
 		&user.Privilege{},
 		&user.UserPrivilege{},
+		&user.UserProject{},
+		&user.UserProjectEnv{},
 		&project.Project{},
 		&databaseTable.DatabaseOperationLog{},
 		&project.ProjectRelease{},

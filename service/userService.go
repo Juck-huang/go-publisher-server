@@ -58,7 +58,10 @@ func (obj *UserService) CheckUsernameAndPassword(username string, password strin
 	if err != nil {
 		// 此处输入错误的密码加密，也会记入密码错误次数中
 		G.Logger.Errorf("解析密码失败，失败原因:[%s]，加密密码:[%s]", err, password)
-		return errors.New("用户名或密码不正确")
+		err = obj.checkLoginErrRedis(username, redisUserKey)
+		if err != nil {
+			return err
+		}
 	}
 	// 校验现有的密码和argon2生成的加密密码正确性
 	var user user2.User
@@ -69,7 +72,7 @@ func (obj *UserService) CheckUsernameAndPassword(username string, password strin
 	}
 	// 如果用户state为1，则用户已禁用
 	if user.State == 1 {
-		return errors.New("用户已锁定")
+		return errors.New("账户已锁定，请联系管理员")
 	}
 	// 1.先从数据库查询出现有用户名对应加密后的密码
 	p := &utils.Params{
@@ -82,8 +85,12 @@ func (obj *UserService) CheckUsernameAndPassword(username string, password strin
 	argonUtils := utils.NewArgon2(p)
 	// 2.数据库取出来的argon2加密后的密码和现有的做比对
 	matchPassword, _ := argonUtils.ComparePasswordAndHash(string(decryptPassword), user.Password)
-
+	// 如果用户名密码匹配，则需要从redis中查看是否有密码输入错误的key，有的话则进行删除
 	if matchPassword {
+		getRedisUserKey, _ := G.RedisClient.Get(redisUserKey).Result()
+		if getRedisUserKey != "" {
+			G.RedisClient.Del(redisUserKey)
+		}
 		return nil
 	}
 	err = obj.checkLoginErrRedis(username, redisUserKey)
@@ -123,7 +130,7 @@ func (obj *UserService) checkLoginErrRedis(username string, redisKey string) err
 			G.Logger.Errorf("从redis中删除用户[%s]key失败:[%s]", username, err.Error())
 			return errors.New("系统错误")
 		}
-		return errors.New(fmt.Sprintf("用户已锁定"))
+		return errors.New(fmt.Sprintf("账户已锁定，请联系管理员"))
 	}
 	if userLoginRedis > "1" && userLoginRedis <= "5" {
 		err = G.RedisClient.Decr(redisKey).Err()

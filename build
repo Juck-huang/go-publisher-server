@@ -13,7 +13,7 @@ mkdir -p go-publisher/templates
 mkdir -p go-publisher/temp
 sleep 2
 echo "开始复制需要的文件"
-cp -r templates/* go-publisher/templates &&
+#cp -r templates/* go-publisher/templates &&
 cp start go-publisher &&
 cp config.yaml go-publisher &&
 if [ $? -eq 0 ];then

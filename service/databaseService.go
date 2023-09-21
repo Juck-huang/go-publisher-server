@@ -160,10 +160,10 @@ func (o *DatabaseService) DynamicExecSql(sql string, username string) (map[strin
 		dataMap["content"] = []any{[]string{errInfo}}
 		return dataMap, errors.New(errInfo)
 	}
-
 	var dataContentList []any
 	for i, result := range resultList {
 		var dataList []string
+		result = strings.ReplaceAll(result, "NULL", "")
 		strList := strings.Split(result, "\t")
 		// 说明是标题
 		if i == 0 {

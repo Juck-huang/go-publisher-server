@@ -144,13 +144,27 @@ func SaveFileContent(c *gin.Context) {
 func GetProjectList(c *gin.Context) {
 	// 1.查询项目列表
 	projectService := service.NewProjectService()
-	projectList := projectService.GetProjectList()
-	// 2.查询出所有的项目类型列表数据
+	username, exists := c.Get("username")
+	if !exists {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"success": false,
+			"msg":     "获取项目信息列表失败",
+			"result":  map[string]any{},
+		})
+		return
+	}
+	projectList := projectService.GetProjectList(username.(string))
+	// 2.根据项目id列表查询出所有的项目类型列表数据
 	projectTypeService := service.NewProjectTypeService()
-	projectTypeList := projectTypeService.GetProjectTypeList()
-	// 3.查询所有项目环境列表
+	var projectIdList []uint
+	for _, project := range projectList {
+		projectIdList = append(projectIdList, project.Id)
+	}
+	projectTypeList := projectTypeService.GetProjectTypeListByPIds(projectIdList)
+	// 3.查询当前用户所有项目环境列表
 	projectEnvService := service.NewProjectEnvService()
-	projectEnvList := projectEnvService.GetProjectEnvList()
+	projectEnvList := projectEnvService.GetProjectEnvListByPUsername(username.(string))
 	c.JSON(http.StatusOK, gin.H{
 		"code":    http.StatusOK,
 		"success": true,
@@ -184,7 +198,7 @@ func GetProjectFileList(c *gin.Context) {
 		G.Logger.Errorf("获取项目文件失败，具体原因:[%s]", err.Error())
 		c.JSON(http.StatusOK, gin.H{
 			"code":    http.StatusOK,
-			"success": true,
+			"success": false,
 			"msg":     err.Error(),
 			"result":  []string{},
 		})
@@ -283,6 +297,111 @@ func UploadProjectFile(c *gin.Context) {
 		"code":    http.StatusOK,
 		"success": true,
 		"message": fmt.Sprintf("上传项目文件%s成功", file.Filename),
+	})
+}
+
+// UploadProjectFileChunk 上传项目chunk文件
+func UploadProjectFileChunk(c *gin.Context) {
+	fileName, isFileName := c.GetPostForm("fileName")
+	chunkName, isChunkName := c.GetPostForm("chunkName")
+	if !isFileName {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "文件名不能为空",
+		})
+		return
+	}
+	if !isChunkName {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "文件chunk名不能为空",
+		})
+		return
+	}
+	formFile, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "上传文件不能为空",
+		})
+		return
+	}
+	tempPath := fmt.Sprintf("temp/%s-chunk", fileName)
+	_, err = os.Stat(tempPath)
+	if os.IsNotExist(err) {
+		err = os.MkdirAll(tempPath, os.ModePerm)
+		if err != nil {
+			fmt.Println("err", err)
+			return
+		}
+	}
+	err = c.SaveUploadedFile(formFile, tempPath+"/"+chunkName)
+	if err != nil {
+		fmt.Println("err", err)
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "上传文件成功",
+	})
+}
+
+// MergeFileChunk 合并上传的chunk文件为一个
+func MergeFileChunk(c *gin.Context) {
+	var mapData = make(map[string]any)
+	err := c.ShouldBindJSON(&mapData)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "参数解析错误:" + err.Error(),
+		})
+		return
+	}
+	fileName := mapData["fileName"].(string)
+	if fileName == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "文件名不能为空",
+		})
+		return
+	}
+	fileHash := mapData["fileHash"].(string)
+	if fileHash == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "文件hash不能为空",
+		})
+		return
+	}
+	chunkPath := fmt.Sprintf("temp/%s-chunk", fileName) // 文件夹chunk名
+	targetPath := "temp/" + fileName
+	fileManagerService := service.NewFileManagerService()
+	err = fileManagerService.HandleMergeFile(chunkPath, targetPath)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": fmt.Sprintf("合并文件%s失败", fileName),
+		})
+		return
+	}
+	isHash, err := fileManagerService.CheckFileHash(targetPath, fileHash)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": fmt.Sprintf("合并文件%s失败", fileName),
+		})
+		return
+	}
+	if !isHash {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": fmt.Sprintf("合并文件%s失败", fileName),
+		})
+		return
+	}
+	G.Logger.Infof("合并文件%s完成", fileName)
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": fmt.Sprintf("合并文件%s完成", fileName),
 	})
 }
 
@@ -487,6 +606,76 @@ func AddFolder(c *gin.Context) {
 	})
 }
 
+// AddFile 新建文件
+func AddFile(c *gin.Context) {
+	var requestFileDto fileManager.RequestDto
+	err := c.ShouldBindJSON(&requestFileDto)
+	if err != nil {
+		G.Logger.Errorf("参数解析错误，具体原因:[%s]", err.Error())
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"success": false,
+			"message": "参数解析错误或参数缺失",
+		})
+		return
+	}
+	// 正则校验新建文件名称，必须是中文，大小写字母、数字和点汉字组成,[\p{L}\p{N}]表示匹配一个Unicode字母或数字
+	pattern := "^[a-zA-Z0-9\u4e00-\u9fa5.\\-._]+$"
+	matchFolder, err := regexp.MatchString(pattern, requestFileDto.AddFileName)
+	if !matchFolder {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"success": false,
+			"message": "新建文件名称格式不正确",
+		})
+		return
+	}
+	fileManagerService := service.NewFileManagerService()
+	err = fileManagerService.SetProjectPath(requestFileDto)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": fmt.Sprintf("项目路径%s不存在，%s", requestFileDto.PathName, err.Error()),
+		})
+		return
+	}
+	// 校验项目文件路径是否存在
+	isDir := fileManagerService.CheckProjectIsDir(requestFileDto.PathName)
+	if !isDir {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": fmt.Sprintf("项目路径%s不存在", requestFileDto.PathName),
+		})
+		return
+	}
+	// 校验新增的文件路径是否存在，如果存在则提示文件已存在，否则运行通过
+	dirIs, err := fileManagerService.CheckProjectIsFile(requestFileDto.PathName + "/" + requestFileDto.AddFileName)
+	if dirIs {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": fmt.Sprintf("文件%s已存在", requestFileDto.AddFileName),
+		})
+		return
+	}
+	err = fileManagerService.AddFile(requestFileDto.PathName, requestFileDto.AddFileName)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"success": true,
+		"message": "文件创建成功",
+	})
+}
+
 // ReNameFile 重命名文件或文件夹
 func ReNameFile(c *gin.Context) {
 	var requestFileDto fileManager.ReNameRequestDto
@@ -509,6 +698,7 @@ func ReNameFile(c *gin.Context) {
 		return
 	}
 	// 正则校验重命名文件夹名称，必须是中文，大小写字母、数字和汉字组成,[\p{L}\p{N}]表示匹配一个Unicode字母或数字
+	fmt.Println("requestFileDto", requestFileDto)
 	pattern := "^[a-zA-Z0-9\u4e00-\u9fa5.\\-_]+$"
 	matchFolder, err := regexp.MatchString(pattern, requestFileDto.NewFileName)
 	if !matchFolder {
@@ -593,7 +783,7 @@ func ReNameFile(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"code":    200,
-		"success": false,
+		"success": true,
 		"message": "重命名文件或文件夹成功",
 	})
 }
@@ -695,7 +885,211 @@ func MoveOrCopyFile(c *gin.Context) {
 	})
 }
 
-// CompressFolder 压缩文件夹
-func CompressFolder(c *gin.Context) {
+// CompressFileOrFolder 压缩文件夹或目录
+func CompressFileOrFolder(c *gin.Context) {
+	var requestFileDto fileManager.RequestDto
+	err := c.ShouldBindJSON(&requestFileDto)
+	if err != nil {
+		G.Logger.Errorf("参数解析错误，具体原因:[%s]", err.Error())
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"success": false,
+			"message": "参数解析错误或参数缺失",
+		})
+		return
+	}
+	if requestFileDto.PathName == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"success": false,
+			"message": "项目文件路径不能为空",
+		})
+		return
+	}
 
+	fileManagerService := service.NewFileManagerService()
+	err = fileManagerService.SetProjectPath(requestFileDto)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": fmt.Sprintf("项目路径%s不存在，%s", requestFileDto.PathName, err.Error()),
+		})
+		return
+	}
+	fileCompletePath := fileManagerService.CurrPath + "/" + requestFileDto.PathName
+	extName := path.Ext(fileCompletePath)
+	if extName == "" {
+		// 说明是目录
+		isDir := fileManagerService.CheckProjectIsDir(requestFileDto.PathName)
+		if !isDir {
+			c.JSON(http.StatusOK, gin.H{
+				"code":    200,
+				"success": false,
+				"message": fmt.Sprintf("项目路径%s不存在", requestFileDto.PathName),
+			})
+			return
+		}
+	} else {
+		// 说明是文件
+		_, err = fileManagerService.CheckProjectIsFile(requestFileDto.PathName)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"code":    200,
+				"success": false,
+				"message": fmt.Sprintf("项目文件路径%s不存在", requestFileDto.PathName),
+			})
+			return
+		}
+	}
+	err = fileManagerService.CompressFileOrFolder(requestFileDto.PathName, extName)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": fmt.Sprintf("压缩文件或文件夹失败"),
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"success": true,
+		"message": fmt.Sprintf("压缩文件或文件夹成功"),
+	})
+}
+
+// DecompressionFile 解压文件
+func DecompressionFile(c *gin.Context) {
+	var requestFileDto fileManager.RequestDto
+	err := c.ShouldBindJSON(&requestFileDto)
+	if err != nil {
+		G.Logger.Errorf("参数解析错误，具体原因:[%s]", err.Error())
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"success": false,
+			"message": "参数解析错误或参数缺失",
+		})
+		return
+	}
+	if requestFileDto.PathName == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"success": false,
+			"message": "项目文件路径不能为空",
+		})
+		return
+	}
+
+	fileManagerService := service.NewFileManagerService()
+	err = fileManagerService.SetProjectPath(requestFileDto)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": fmt.Sprintf("项目路径%s不存在，%s", requestFileDto.PathName, err.Error()),
+		})
+		return
+	}
+	fileCompletePath := fileManagerService.CurrPath + "/" + requestFileDto.PathName
+	extName := path.Ext(fileCompletePath)
+	if extName == "" || extName != ".zip" {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": "只支持解压zip文件",
+		})
+		return
+	}
+	// 校验文件是否存在
+	_, err = fileManagerService.CheckProjectIsFile(requestFileDto.PathName)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": fmt.Sprintf("项目文件路径%s不存在", requestFileDto.PathName),
+		})
+		return
+	}
+	err = fileManagerService.DecompressionFile(requestFileDto.PathName, extName)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": fmt.Sprintf("解压文件失败"),
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"success": true,
+		"message": fmt.Sprintf("解压文件成功"),
+	})
+}
+
+// GetRealTimeLog 查看实时日志
+func GetRealTimeLog(c *gin.Context) {
+	// 升级http为websocket连接
+	//upgrader := websocket.Upgrader{CheckOrigin: func(r *http.Request) bool {
+	//	return true
+	//}}
+	//w := c.Writer
+	//r := c.Request
+	//conn, err := upgrader.Upgrade(w, r, nil)
+	//if err != nil {
+	//	// 连接升级失败，返回错误
+	//	w.WriteHeader(http.StatusInternalServerError)
+	//	return
+	//}
+	//authSuccess := false
+	//// 处理websocket请求
+	//for {
+	//	// 读取客户端发送的消息
+	//	_, msg, err := conn.ReadMessage()
+	//	if err != nil {
+	//		// 读取消息失败，断开连接
+	//		break
+	//	}
+	//	fmt.Println("读取到客户端发送的消息:", string(msg))
+	//	if strings.Contains(string(msg), "x-ws-token") {
+	//		var wsMap = make(map[string]any, 1)
+	//		fmt.Println("是认证消息")
+	//		err = json.Unmarshal(msg, &wsMap)
+	//		if err != nil {
+	//			authSuccess = false
+	//		}
+	//		token := wsMap["x-ws-token"].(string)
+	//		_, err = utils.ParseToken(token)
+	//		if err != nil {
+	//			authSuccess = false
+	//		} else {
+	//			authSuccess = true
+	//		}
+	//	}
+	//	if authSuccess {
+	//		fmt.Println("身份认证成功, 开始读取实时日志")
+	//		err = conn.WriteMessage(websocket.TextMessage, []byte("身份认证成功，开始读取实时日志"))
+	//		if err != nil {
+	//			// 发送消息失败，断开连接
+	//			break
+	//		}
+	//
+	//	} else {
+	//		fmt.Println("身份认证失败")
+	//		err = conn.WriteMessage(websocket.TextMessage, []byte("身份认证失败"))
+	//		if err != nil {
+	//			// 发送消息失败，断开连接
+	//			break
+	//		}
+	//		// 认证失败则直接端开连接
+	//		conn.Close()
+	//	}
+	//}
+	//conn.Close()
+	//
+
+	managerService := service.NewFileManagerService()
+	managerService.GetRealLog()
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+	})
 }

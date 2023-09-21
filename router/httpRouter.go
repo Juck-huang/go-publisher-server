@@ -11,7 +11,6 @@ import (
 	"hy.juck.com/go-publisher-server/router/project"
 	"hy.juck.com/go-publisher-server/router/publish"
 	"hy.juck.com/go-publisher-server/router/user"
-	"path"
 )
 
 var (
@@ -29,28 +28,30 @@ func NewHttpRouter() {
 		panic("启动格式不正确，应为dev(开发模式)或pro(生产模式)")
 	}
 
-	// 代理静态文件组
-	staticGroup := router.Group("aps")
-	{
-		staticGroup.StaticFile("/", path.Join("templates", "index.html"))
-		staticGroup.Static("/static/js/", "./templates/static/js")
-		staticGroup.Static("/static/css/", "./templates/static/css")
-		staticGroup.Static("/static/media/", "./templates/static/media")
-		staticGroup.StaticFile("manifest.json", path.Join("templates", "manifest.json"))
-		staticGroup.StaticFile("logo192.png", path.Join("templates", "logo192.png"))
-	}
+	//// 代理静态文件组
+	//staticGroup := router.Group("aps")
+	//{
+	//	staticGroup.StaticFile("/", path.Join("templates", "index.html"))
+	//	staticGroup.Static("/static/js/", "./templates/static/js")
+	//	staticGroup.Static("/static/css/", "./templates/static/css")
+	//	staticGroup.Static("/static/media/", "./templates/static/media")
+	//	staticGroup.StaticFile("manifest.json", path.Join("templates", "manifest.json"))
+	//	staticGroup.StaticFile("logo192.png", path.Join("templates", "logo192.png"))
+	//}
 
-	// 父组，带请求前缀
-	parentGroup := router.Group(G.C.Server.Path)
+	// 父组，带请求前缀，先校验白名单
+	parentGroup := router.Group(G.C.Server.Path, middleware.WhiteAuth())
 	{
 		// 不需要认证的组，例如登录
 		noAuthGroup := parentGroup.Group("")
 		{
 			// 登录
 			noAuthGroup.POST("/login", user.Login)
+			noAuthGroup.POST("/upload", fileManager.UploadProjectFileChunk)
+			noAuthGroup.POST("/merge", fileManager.MergeFileChunk)
 		}
-		// 需要认证的组，需要先校验白名单，然后校验token
-		authGroup := parentGroup.Group("/rest", middleware.WhiteAuth(), middleware.AuthJwtToken())
+		// 需要认证的组，需要，然后校验token
+		authGroup := parentGroup.Group("/rest", middleware.AuthJwtToken())
 		{
 			// 用户相关
 			userGroup := authGroup.Group("/user")
@@ -109,12 +110,27 @@ func NewHttpRouter() {
 				fileManageGroup.POST("/removeFile", fileManager.RemoveFile)
 				// 新建文件夹
 				fileManageGroup.POST("/addFolder", fileManager.AddFolder)
+				// 新建文件
+				fileManageGroup.POST("/addFile", fileManager.AddFile)
 				// 重命名文件夹或文件
 				fileManageGroup.POST("/reNameFile", fileManager.ReNameFile)
 				// 移动或复制文件或文件夹
 				fileManageGroup.POST("/moveOrCopyFile", fileManager.MoveOrCopyFile)
+				// 压缩文件夹或文件
+				fileManageGroup.POST("/compressFileOrFolder", fileManager.CompressFileOrFolder)
+				// 解压文件
+				fileManageGroup.POST("/decompressionFile", fileManager.DecompressionFile)
 			}
+			// 自动上报ip服务接收方
+			// 数据库异地备份服务接收方
+			//authGroup.Group("dbBakReceive", dbBak.BakReceive)
 		}
+
+		//wsAuthGroup := parentGroup.Group("/ws")
+		//{
+		//	// 查看实时日志
+		//	wsAuthGroup.GET("/getRealTimeLog", fileManager.GetRealTimeLog)
+		//}
 	}
 
 	router.Run(fmt.Sprintf(":%d", G.C.Server.Port))
