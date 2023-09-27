@@ -2,7 +2,6 @@ package router
 
 import (
 	"fmt"
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"hy.juck.com/go-publisher-server/config"
 	"hy.juck.com/go-publisher-server/middleware"
@@ -19,7 +18,7 @@ var (
 
 func NewHttpRouter() {
 	router := gin.Default()
-	router.Use(cors.Default())
+	router.Use(middleware.Cors())
 	if G.C.Zap.Mode == "dev" {
 		gin.SetMode(gin.DebugMode)
 	} else if G.C.Zap.Mode == "pro" {
@@ -47,8 +46,6 @@ func NewHttpRouter() {
 		{
 			// 登录
 			noAuthGroup.POST("/login", user.Login)
-			noAuthGroup.POST("/upload", fileManager.UploadProjectFileChunk)
-			noAuthGroup.POST("/merge", fileManager.MergeFileChunk)
 		}
 		// 需要认证的组，需要，然后校验token
 		authGroup := parentGroup.Group("/rest", middleware.AuthJwtToken())
@@ -60,6 +57,8 @@ func NewHttpRouter() {
 				userGroup.POST("/getUserInfo", user.GetUserInfo)
 				// 登出
 				userGroup.POST("/logout", user.Logout)
+				// 自动上报ip服务接收方
+				userGroup.POST("/updateLoginWhiteIp", user.UpdateLoginWhiteIp)
 			}
 			// 发布管理
 			publishGroup := authGroup.Group("/publish") // 发布组路由
@@ -102,6 +101,12 @@ func NewHttpRouter() {
 				fileManageGroup.POST("/uploadProjectFile", fileManager.UploadProjectFile)
 				// 下载项目文件,包括项目文件夹，单独下载
 				fileManageGroup.POST("/downloadProjectFile", fileManager.DownloadProjectFile)
+				// 上传项目切片文件
+				fileManageGroup.POST("/uploadProjectFileChunk", fileManager.UploadProjectFileChunk)
+				// 合并切片文件成一个
+				fileManageGroup.POST("/mergeFileChunk", fileManager.MergeFileChunk)
+				// 获取需要下载文件大小
+				fileManageGroup.POST("/getFileSize", fileManager.GetFileSize)
 				// 读取文件信息
 				fileManageGroup.POST("/getFileContent", fileManager.GetFileContent)
 				// 保存文件内容
@@ -121,9 +126,6 @@ func NewHttpRouter() {
 				// 解压文件
 				fileManageGroup.POST("/decompressionFile", fileManager.DecompressionFile)
 			}
-			// 自动上报ip服务接收方
-			// 数据库异地备份服务接收方
-			//authGroup.Group("dbBakReceive", dbBak.BakReceive)
 		}
 
 		//wsAuthGroup := parentGroup.Group("/ws")

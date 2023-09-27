@@ -120,3 +120,14 @@ func Login(c *gin.Context) {
 		"message": "登录成功",
 	})
 }
+
+// UpdateLoginWhiteIp 更新登录ip白名单地址
+func UpdateLoginWhiteIp(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"success": true,
+		"result":  map[string]any{},
+		"message": "更新成功",
+	})
+	return
+}

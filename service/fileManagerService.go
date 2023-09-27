@@ -56,10 +56,10 @@ func (o *FileManagerService) GetFileList(pathName string) (fileManagerDtos []fil
 			return nil, err
 		}
 		fileCompletePath := o.CurrPath + "/" + fileInfo.Name()
-		extName := path.Ext(fileCompletePath) // 文件扩展名，为空则是文件夹
+		var extName string // 文件才有扩展名
 		fileType := "folder"
-		if extName != "" {
-			extName = strings.Replace(extName, ".", "", 1)
+		if !fileInfo.IsDir() {
+			extName = strings.Replace(path.Ext(fileCompletePath), ".", "", 1)
 			fileType = "file"
 		}
 		updateDate := fileInfo.ModTime().Format("2006-01-02 15:04:05")

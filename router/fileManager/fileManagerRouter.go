@@ -456,6 +456,67 @@ func DownloadProjectFile(c *gin.Context) {
 	c.File(downloadPath)
 }
 
+// GetFileSize 获取需要下载文件大小
+func GetFileSize(c *gin.Context) {
+	var requestFileDto fileManager.RequestDto
+	err := c.ShouldBindJSON(&requestFileDto)
+	if err != nil {
+		G.Logger.Errorf("参数解析错误，具体原因:[%s]", err.Error())
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"success": false,
+			"msg":     "参数解析错误或参数缺失",
+		})
+		return
+	}
+	if requestFileDto.PathName == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"success": false,
+			"msg":     "项目文件路径不能为空",
+		})
+		return
+	}
+	fileManagerService := service.NewFileManagerService()
+	err = fileManagerService.SetProjectPath(requestFileDto)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": fmt.Sprintf("项目路径%s不存在，%s", requestFileDto.PathName, err.Error()),
+		})
+		return
+	}
+	_, err = fileManagerService.CheckProjectIsFile(requestFileDto.PathName)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": fmt.Sprintf("路径[%s]解析错误,错误原因：%s", requestFileDto.PathName, err.Error()),
+		})
+		return
+	}
+	filePath := fileManagerService.CurrPath + "/" + requestFileDto.PathName
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": "解析项目路径失败",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "获取文件大小成功",
+		"result": map[string]any{
+			"pathName": requestFileDto.PathName,
+			"size":     fileInfo.Size(),
+		},
+	})
+}
+
 // RemoveFile 删除文件或文件夹
 func RemoveFile(c *gin.Context) {
 	var requestFileDto fileManager.RequestDto
@@ -496,8 +557,16 @@ func RemoveFile(c *gin.Context) {
 		return
 	}
 	fileCompletePath := fileManagerService.CurrPath + "/" + requestFileDto.PathName
-	extName := path.Ext(fileCompletePath)
-	if extName == "" {
+	fileInfo, err := os.Stat(fileCompletePath)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": fmt.Sprintf("项目路径或文件夹%s不存在，%s", requestFileDto.PathName, err.Error()),
+		})
+		return
+	}
+	if fileInfo.IsDir() {
 		// 说明是目录
 		isDir := fileManagerService.CheckProjectIsDir(requestFileDto.PathName)
 		if !isDir {
@@ -698,7 +767,6 @@ func ReNameFile(c *gin.Context) {
 		return
 	}
 	// 正则校验重命名文件夹名称，必须是中文，大小写字母、数字和汉字组成,[\p{L}\p{N}]表示匹配一个Unicode字母或数字
-	fmt.Println("requestFileDto", requestFileDto)
 	pattern := "^[a-zA-Z0-9\u4e00-\u9fa5.\\-_]+$"
 	matchFolder, err := regexp.MatchString(pattern, requestFileDto.NewFileName)
 	if !matchFolder {
@@ -726,22 +794,22 @@ func ReNameFile(c *gin.Context) {
 		return
 	}
 	fileCompletePath := fileManagerService.CurrPath + "/" + requestFileDto.PathName
-	extName := path.Ext(fileCompletePath)
-	var newFileName string
+	fmt.Println("fileCompletePath", fileCompletePath)
+	fileInfo, err := os.Stat(fileCompletePath)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": fmt.Sprintf("项目路径%s不存在，%s", requestFileDto.PathName, err.Error()),
+		})
+		return
+	}
 	splitPathNames := strings.Split(requestFileDto.PathName, "/") // 取/分割后前面的所有
-	newFileName = strings.Join(splitPathNames[0:len(splitPathNames)-1], "/") + "/" + requestFileDto.NewFileName
-	if extName == "" {
-		// 说明是目录
-		isDir := fileManagerService.CheckProjectIsDir(requestFileDto.PathName)
-		if !isDir {
-			c.JSON(http.StatusOK, gin.H{
-				"code":    200,
-				"success": false,
-				"message": fmt.Sprintf("项目路径%s不存在", requestFileDto.PathName),
-			})
-			return
-		}
-		isDir = fileManagerService.CheckProjectIsDir(newFileName)
+	newFileName := strings.Join(splitPathNames[0:len(splitPathNames)-1], "/") + "/" + requestFileDto.NewFileName
+	// 说明是目录
+	if fileInfo.IsDir() {
+		// 校验新文件夹路径
+		isDir := fileManagerService.CheckProjectIsDir(newFileName)
 		if isDir {
 			c.JSON(http.StatusOK, gin.H{
 				"code":    200,
@@ -751,17 +819,7 @@ func ReNameFile(c *gin.Context) {
 			return
 		}
 	} else {
-		// 说明是文件
-		_, err = fileManagerService.CheckProjectIsFile(requestFileDto.PathName)
-		if err != nil {
-			c.JSON(http.StatusOK, gin.H{
-				"code":    200,
-				"success": false,
-				"message": fmt.Sprintf("项目文件路径%s不存在", requestFileDto.PathName),
-			})
-			return
-		}
-		// 说明是文件
+		// 说明是文件,则有扩展名
 		exitFile, _ := fileManagerService.CheckProjectIsFile(newFileName)
 		if exitFile {
 			c.JSON(http.StatusOK, gin.H{
