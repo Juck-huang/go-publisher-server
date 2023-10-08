@@ -30,14 +30,14 @@ type Config struct {
 	} `mapstructure:"server"`
 	Ops struct {
 		Mysql struct {
-			LoginName struct {
-				WriteName string `mapstructure:"writeName"`
-				ReadName  string `mapstructure:"readName"`
-			} `mapstructure:"loginName"` // 登录名称
-			//Host       string   `json:"host"`
-			//Port       string   `json:"port"`
-			//Username   string   `json:"username"`
-			//Password   string   `json:"password"`
+			// LoginName struct {
+			// 	WriteName string `mapstructure:"writeName"`
+			// 	ReadName  string `mapstructure:"readName"`
+			// } `mapstructure:"loginName"` // 登录名称
+			Host       string   `json:"host"`
+			Port       string   `json:"port"`
+			Username   string   `json:"username"`
+			Password   string   `json:"password"`
 			BackUpPath string   `mapstructure:"backUpPath"`
 			IgnoreDbs  []string `mapstructure:"ignoreDbs"` // 忽略的数据库，如系统数据库
 		}

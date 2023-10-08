@@ -1,15 +1,16 @@
 package database
 
 import (
+	"net/http"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	uuid "github.com/satori/go.uuid"
 	"hy.juck.com/go-publisher-server/config"
 	"hy.juck.com/go-publisher-server/dto/database"
 	"hy.juck.com/go-publisher-server/service"
-	"net/http"
-	"os"
-	"strings"
-	"time"
 )
 
 var (
@@ -269,7 +270,7 @@ func GetDbAndTableList(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    200,
 			"success": false,
-			"message": "获取数据库列表失败，请联系系统管理员",
+			"message": "获取数据库列表失败，请联系管理员",
 		})
 		return
 	}
@@ -280,7 +281,7 @@ func GetDbAndTableList(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    200,
 			"success": false,
-			"message": "获取数据库列表失败",
+			"message": "获取数据库列表失败，请联系管理员",
 		})
 		return
 	}
