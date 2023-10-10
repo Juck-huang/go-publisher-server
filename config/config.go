@@ -68,7 +68,8 @@ type Config struct {
 		Level      string `mapstructure:"level"`
 	} `mapstructure:"zap"`
 	Jwt struct {
-		Token struct {
+		WhiteUrlList []string `json:"WhiteUrlList"` // 无需token列表
+		Token        struct {
 			Expire int    `json:"expire"` // 有效期，单位秒
 			Secret string `json:"secret"` // 秘钥
 		} `mapstructure:"token"`

@@ -6,9 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"hy.juck.com/go-publisher-server/common"
-	"hy.juck.com/go-publisher-server/dto/fileManager"
-	"hy.juck.com/go-publisher-server/model/project"
 	"io"
 	"io/ioutil"
 	"os"
@@ -18,6 +15,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"hy.juck.com/go-publisher-server/common"
+	"hy.juck.com/go-publisher-server/dto/fileManager"
+	"hy.juck.com/go-publisher-server/model/project"
 )
 
 type FileManagerService struct {
@@ -127,7 +128,8 @@ func (o *FileManagerService) CheckProjectIsFile(pathName string) (bool, error) {
 // SaveFileContent 保存项目文件内容
 func (o *FileManagerService) SaveFileContent(pathName string, content string) (bool, error) {
 	filePath := o.CurrPath + "/" + pathName
-	openFile, err := os.OpenFile(filePath, os.O_RDWR, 0644)
+	openFile, err := os.OpenFile(filePath, os.O_WRONLY|os.O_TRUNC, 0644) // O_WRONLY:只写入，O_TRUNC:覆写
+	fmt.Println("content", content)
 	if err != nil {
 		G.Logger.Errorf("编辑文件失败:[%s]", err.Error())
 		return false, errors.New("编辑文件失败")

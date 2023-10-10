@@ -89,14 +89,16 @@ func NewHttpRouter() {
 				fileManageGroup.POST("/getProjectFileList", fileManager.GetProjectFileList)
 				// 上传项目文件，单独上传
 				fileManageGroup.POST("/uploadProjectFile", fileManager.UploadProjectFile)
-				// 下载项目文件,包括项目文件夹，单独下载
+				// 下载项目文件,包括项目文件夹，单独下载,post请求
 				fileManageGroup.POST("/downloadProjectFile", fileManager.DownloadProjectFile)
 				// 上传项目切片文件
 				fileManageGroup.POST("/uploadProjectFileChunk", fileManager.UploadProjectFileChunk)
-				// 合并切片文件成一个
+				// 合并切片文件成一个(上传文件切片后调用)
 				fileManageGroup.POST("/mergeFileChunk", fileManager.MergeFileChunk)
-				// 获取需要下载文件大小
-				fileManageGroup.POST("/getFileSize", fileManager.GetFileSize)
+				// 校验需要下载文件信息,校验成功再调用getProjectFile接口下载文件
+				fileManageGroup.POST("/checkDownloadFile", fileManager.CheckDownloadFile)
+				// 下载项目文件,包括项目文件夹，单独下载,get请求(调用浏览器下载)
+				fileManageGroup.GET("/getProjectFile", fileManager.GetProjectFile)
 				// 读取文件信息
 				fileManageGroup.POST("/getFileContent", fileManager.GetFileContent)
 				// 保存文件内容

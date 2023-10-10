@@ -2,16 +2,19 @@ package fileManager
 
 import (
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"hy.juck.com/go-publisher-server/config"
-	"hy.juck.com/go-publisher-server/dto/fileManager"
-	"hy.juck.com/go-publisher-server/service"
 	"net/http"
 	"os"
 	"path"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/gin-gonic/gin"
+	"hy.juck.com/go-publisher-server/config"
+	"hy.juck.com/go-publisher-server/dto/fileManager"
+	"hy.juck.com/go-publisher-server/middleware"
+	"hy.juck.com/go-publisher-server/service"
+	"hy.juck.com/go-publisher-server/utils"
 )
 
 var (
@@ -456,8 +459,97 @@ func DownloadProjectFile(c *gin.Context) {
 	c.File(downloadPath)
 }
 
-// GetFileSize 获取需要下载文件大小
-func GetFileSize(c *gin.Context) {
+// GetProjectFile 下载项目文件或文件夹
+func GetProjectFile(c *gin.Context) {
+	var requestFileDto fileManager.RequestDto
+	var errInfo error
+	requestFileDto.PathName = c.Query("pathName")
+	token := c.Query("token")
+	projectId, err := strconv.ParseUint(c.Query("projectId"), 0, 0)
+	if err != nil {
+		errInfo = err
+	}
+	requestFileDto.ProjectId = uint(projectId)
+	projectEnvId, err := strconv.ParseUint(c.Query("projectEnvId"), 0, 0)
+	if err != nil {
+		errInfo = err
+	}
+	requestFileDto.ProjectEnvId = uint(projectEnvId)
+	projectTypeId, err := strconv.ParseUint(c.Query("projectTypeId"), 0, 0)
+	if err != nil {
+		errInfo = err
+	}
+	requestFileDto.ProjectTypeId = uint(projectTypeId)
+	if errInfo != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"success": false,
+			"msg":     "参数解析错误",
+		})
+		return
+	}
+	if requestFileDto.PathName == "" || projectId == 0 || projectEnvId == 0 || projectTypeId == 0 || token == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"success": false,
+			"msg":     "参数缺失",
+		})
+		return
+	}
+	// token解析错误不通过
+	claims, errInfo := utils.ParseToken(token)
+	if errInfo != nil {
+		G.Logger.Errorf("token解析错误或已经失效:[%s]", err)
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"code":    http.StatusUnauthorized,
+			"message": "token解析错误或token已失效",
+			"result":  []string{},
+		})
+		c.Abort()
+		return
+	}
+	errInfo = middleware.CheckLogoutRedis(claims.Username, token)
+	if errInfo != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"code":    http.StatusUnauthorized,
+			"message": errInfo,
+			"result":  []string{},
+		})
+		c.Abort()
+		return
+	}
+	fileManagerService := service.NewFileManagerService()
+	errInfo = fileManagerService.SetProjectPath(requestFileDto)
+	if errInfo != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": fmt.Sprintf("项目路径%s不存在，%s", requestFileDto.PathName, err.Error()),
+		})
+		return
+	}
+	_, errInfo = fileManagerService.CheckProjectIsFile(requestFileDto.PathName)
+	if errInfo != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": fmt.Sprintf("路径[%s]解析错误,错误原因：%s", requestFileDto.PathName, err.Error()),
+		})
+		return
+	}
+	downloadPath := fileManagerService.CurrPath + "/" + requestFileDto.PathName
+	filePaths := strings.Split(requestFileDto.PathName, "/")
+	fileName := filePaths[len(filePaths)-1]
+	G.Logger.Infof("读取下载文件路径:[%s],文件名:[%s]", downloadPath, fileName)
+	// 读取文件后直接返回流
+	c.Header("Content-Type", "application/octet-stream")
+	c.Header("Content-Disposition", "attachment; filename="+fileName)
+	c.Set("Content-Transfer-Encoding", "binary")
+	c.File(downloadPath)
+}
+
+// CheckDownloadFile 校验需要下载文件信息
+func CheckDownloadFile(c *gin.Context) {
 	var requestFileDto fileManager.RequestDto
 	err := c.ShouldBindJSON(&requestFileDto)
 	if err != nil {
@@ -509,7 +601,7 @@ func GetFileSize(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": "获取文件大小成功",
+		"message": "校验项目文件成功",
 		"result": map[string]any{
 			"pathName": requestFileDto.PathName,
 			"size":     fileInfo.Size(),
