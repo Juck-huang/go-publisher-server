@@ -2,6 +2,7 @@ package router
 
 import (
 	"fmt"
+
 	"github.com/gin-gonic/gin"
 	"hy.juck.com/go-publisher-server/config"
 	"hy.juck.com/go-publisher-server/middleware"
@@ -26,17 +27,6 @@ func NewHttpRouter() {
 	} else {
 		panic("启动格式不正确，应为dev(开发模式)或pro(生产模式)")
 	}
-
-	//// 代理静态文件组
-	//staticGroup := router.Group("aps")
-	//{
-	//	staticGroup.StaticFile("/", path.Join("templates", "index.html"))
-	//	staticGroup.Static("/static/js/", "./templates/static/js")
-	//	staticGroup.Static("/static/css/", "./templates/static/css")
-	//	staticGroup.Static("/static/media/", "./templates/static/media")
-	//	staticGroup.StaticFile("manifest.json", path.Join("templates", "manifest.json"))
-	//	staticGroup.StaticFile("logo192.png", path.Join("templates", "logo192.png"))
-	//}
 
 	// 父组，带请求前缀，先校验白名单
 	parentGroup := router.Group(G.C.Server.Path, middleware.WhiteAuth())

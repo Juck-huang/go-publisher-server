@@ -162,6 +162,10 @@ func (o *DatabaseService) DynamicExecSql(sql string, username string) (map[strin
 		if strings.Contains(err.Error(), "1142") {
 			errInfo = "您没有操作权限"
 		}
+		mysqlWarn := "mysql: [Warning] Using a password on the command line interface can be insecure."
+		if strings.Contains(err.Error(), mysqlWarn) {
+			errInfo = strings.ReplaceAll(err.Error(), mysqlWarn, "")
+		}
 		dataMap["content"] = []any{[]string{errInfo}}
 		return dataMap, errors.New(errInfo)
 	}
@@ -205,7 +209,7 @@ func (o *DatabaseService) GetDbAndTableList(ignoreDbs []string) (map[string]any,
 	if err != nil {
 		return dbTableMap, err
 	}
-	if len(dataList) > 0 {
+	if len(dataList) > 2 {
 		dataList = dataList[2:]
 	}
 
@@ -229,7 +233,12 @@ func (o *DatabaseService) __getTableList(dbName string) ([]string, error) {
 	if err != nil {
 		return dataList, err
 	}
-	if len(dataList) > 0 {
+	fmt.Println("ss", len(dataList))
+	if len(dataList) == 1 {
+		dataList = []string{}
+		return dataList, nil
+	}
+	if len(dataList) > 1 {
 		dataList = dataList[2:]
 	}
 	return dataList, nil

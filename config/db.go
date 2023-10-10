@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	databaseTable "hy.juck.com/go-publisher-server/model/database"
@@ -49,5 +50,5 @@ func initMysql() {
 		&project.ProjectEnv{},
 		&project.ProjectDir{},
 	)
-	G.Logger.Infof("初始化数据库连接成功")
+	G.Logger.Infof("初始化数据库成功")
 }
