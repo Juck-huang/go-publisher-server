@@ -9,7 +9,6 @@ import (
 // WhiteAuth 白名单认证
 func WhiteAuth() func(c *gin.Context) {
 	return func(c *gin.Context) {
-
 		if !G.C.White.Status {
 			c.Next()
 			return

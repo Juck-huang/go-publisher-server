@@ -197,8 +197,6 @@ func (o *FileManagerService) ReNameFile(pathName string, newFileName string) err
 func (o *FileManagerService) MoveOrCopyFile(operationType int, extName string, srcPath string, targetPath string) error {
 	srcPath = o.CurrPath + "/" + srcPath
 	targetPath = o.CurrPath + "/" + targetPath
-	//fmt.Println("srcPath", srcPath)
-	//fmt.Println("targetPath", targetPath)
 	switch operationType {
 	case 1:
 		// 移动
@@ -213,7 +211,7 @@ func (o *FileManagerService) MoveOrCopyFile(operationType int, extName string, s
 			return err
 		}
 	case 2:
-		// 操作
+		// 复制
 		if extName == "" {
 			// 是文件夹
 			sss := strings.Split(targetPath, "/")
@@ -345,31 +343,23 @@ func (o *FileManagerService) HandleMergeFile(chunkPath string, targetFilePath st
 }
 
 // CheckFileHash 校验合并文件完成生成的hash与原文件hash是否一致
-func (o *FileManagerService) CheckFileHash(filePath string, originHash string) (bool, error) {
+func (o *FileManagerService) CheckFileHash(filePath string, originHash string) error {
 	openFile, err := os.Open(filePath)
 	defer openFile.Close()
 	if err != nil {
-		return false, err
+		return err
 	}
-	//buf := make([]byte, 1024)
 	md5h := md5.New()
 	_, err = io.Copy(md5h, openFile)
 	if err != nil {
-		return false, err
+		return err
 	}
-	//for {
-	//	n, err := openFile.Read(buf)
-	//	if err != nil {
-	//		if err == io.EOF {
-	//			break
-	//		}
-	//		fmt.Println("读取文件失败")
-	//	}
-	//	md5h.Write(buf[:n])
-	//}
 	md5Str := hex.EncodeToString(md5h.Sum(nil))
-	fmt.Println("文件hash:", originHash, md5Str)
-	return originHash == md5Str, nil
+	// fmt.Println("文件hash:", originHash, md5Str)
+	if originHash != md5Str {
+		return errors.New("hash不配置")
+	}
+	return nil
 }
 
 func (o *FileManagerService) GetRealLog() {

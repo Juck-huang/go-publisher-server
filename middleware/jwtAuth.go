@@ -19,7 +19,6 @@ var (
 // AuthJwtToken gin框架进行token认证
 func AuthJwtToken() func(c *gin.Context) {
 	return func(c *gin.Context) {
-		fmt.Println("request", c.Request.URL.Path)
 		requestUrl := c.Request.URL.Path
 		// 判断请求的url是不是在白名单列表中，在，则放行
 		for _, url := range G.C.Jwt.WhiteUrlList {

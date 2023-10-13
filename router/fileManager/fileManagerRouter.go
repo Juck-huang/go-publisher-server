@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -260,9 +261,9 @@ func UploadProjectFile(c *gin.Context) {
 	}
 	// 保存文件到项目目录下
 	fileManagerService := service.NewFileManagerService()
-	uintProjectId, err := strconv.ParseUint(projectId, 10, 64)
-	uintProjectEnvId, err := strconv.ParseUint(projectEnvId, 10, 64)
-	uintProjectTypeId, err := strconv.ParseUint(projectTypeId, 10, 64)
+	uintProjectId, _ := strconv.ParseUint(projectId, 10, 64)
+	uintProjectEnvId, _ := strconv.ParseUint(projectEnvId, 10, 64)
+	uintProjectTypeId, _ := strconv.ParseUint(projectTypeId, 10, 64)
 	var projectFileDto = fileManager.RequestDto{
 		ProjectId:     uint(uintProjectId),
 		ProjectEnvId:  uint(uintProjectEnvId),
@@ -305,22 +306,29 @@ func UploadProjectFile(c *gin.Context) {
 
 // UploadProjectFileChunk 上传项目chunk文件
 func UploadProjectFileChunk(c *gin.Context) {
-	fileName, isFileName := c.GetPostForm("fileName")
-	chunkName, isChunkName := c.GetPostForm("chunkName")
-	if !isFileName {
+	projectIdString, isProjectId := c.GetPostForm("projectId")             // 项目id(必传)
+	projectEnvIdString, isProjectEnvId := c.GetPostForm("projectEnvId")    // 项目id(必传)
+	projectTypeIdString, isProjectTypeId := c.GetPostForm("projectTypeId") // 项目id(必传)
+	fileName, isFileName := c.GetPostForm("fileName")                      // 上传的文件名(必传)
+	chunkName, isChunkName := c.GetPostForm("chunkName")                   // 上传的文件切片名称(必传)
+	fileHash, isFileHash := c.GetPostForm("fileHash")                      // 上传的文件hash值(必传)
+	pathName, _ := c.GetPostForm("pathName")                               // 文件路径
+	if !isProjectId || !isProjectEnvId || !isProjectTypeId || !isFileName || !isChunkName || !isFileHash {
+		fmt.Println("qq", projectIdString, fileName, pathName)
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
-			"message": "文件名不能为空",
+			"message": "参数解析错误或参数缺失",
 		})
 		return
 	}
-	if !isChunkName {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "文件chunk名不能为空",
-		})
-		return
-	}
+	var projectFileDto fileManager.RequestDto
+	projectId, _ := strconv.ParseUint(projectIdString, 10, 64)
+	projectFileDto.ProjectId = uint(projectId)
+	projectEnvId, _ := strconv.ParseUint(projectEnvIdString, 10, 64)
+	projectFileDto.ProjectEnvId = uint(projectEnvId)
+	projectTypeId, _ := strconv.ParseUint(projectTypeIdString, 10, 64)
+	projectFileDto.ProjectTypeId = uint(projectTypeId)
+	projectFileDto.PathName = pathName
 	formFile, err := c.FormFile("file")
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
@@ -329,26 +337,58 @@ func UploadProjectFileChunk(c *gin.Context) {
 		})
 		return
 	}
-	tempPath := fmt.Sprintf("temp/%s-chunk", fileName)
-	_, err = os.Stat(tempPath)
+	fileManagerService := service.NewFileManagerService()
+	err = fileManagerService.SetProjectPath(projectFileDto)
+	if err != nil {
+		G.Logger.Errorf("上传项目文件失败，具体原因:[%s]", err.Error())
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"success": false,
+			"msg":     err.Error(),
+			"result":  []string{},
+		})
+		return
+	}
+	fileExist := fileManagerService.CheckProjectIsDir(pathName)
+	if !fileExist {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": fmt.Sprintf("上传项目文件%s失败，文件或文件夹不存在", formFile.Filename),
+		})
+		return
+	}
+
+	// 上传的切片文件直接存储到对应的项目目录下，上传中文件夹格式：[文件hash]-chunk.upload
+	tempUploadPath := fmt.Sprintf("%s/%s/.%s-chunk.upload", fileManagerService.CurrPath, pathName, fileHash)
+	_, err = os.Stat(tempUploadPath)
 	if os.IsNotExist(err) {
-		err = os.MkdirAll(tempPath, os.ModePerm)
+		err = os.MkdirAll(tempUploadPath, os.ModePerm)
 		if err != nil {
-			fmt.Println("err", err)
+			G.Logger.Errorf("上传文件失败:%s", err)
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "上传文件失败",
+			})
 			return
 		}
 	}
-	err = c.SaveUploadedFile(formFile, tempPath+"/"+chunkName)
+	err = c.SaveUploadedFile(formFile, tempUploadPath+"/"+chunkName)
 	if err != nil {
-		fmt.Println("err", err)
+		G.Logger.Errorf("上传文件失败:%s", err)
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "上传文件失败",
+		})
+		return
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": "上传文件成功",
+		"message": fmt.Sprintf("上传文件%s成功", fileName),
 	})
 }
 
-// MergeFileChunk 合并上传的chunk文件为一个
+// MergeFileChunk 合并上传的chunk文件为一个,并移动到对应项目目录下
 func MergeFileChunk(c *gin.Context) {
 	var mapData = make(map[string]any)
 	err := c.ShouldBindJSON(&mapData)
@@ -360,25 +400,47 @@ func MergeFileChunk(c *gin.Context) {
 		return
 	}
 	fileName := mapData["fileName"].(string)
-	if fileName == "" {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "文件名不能为空",
-		})
-		return
-	}
 	fileHash := mapData["fileHash"].(string)
-	if fileHash == "" {
+	pathName := mapData["pathName"].(string)
+	projectId := mapData["projectId"].(float64)
+	projectEnvId := mapData["projectEnvId"].(float64)
+	projectTypeId := mapData["projectTypeId"].(float64)
+	if fileName == "" || fileHash == "" || projectId == 0 || projectEnvId == 0 || projectTypeId == 0 || pathName == "" {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
-			"message": "文件hash不能为空",
+			"message": "参数缺失",
 		})
 		return
 	}
-	chunkPath := fmt.Sprintf("temp/%s-chunk", fileName) // 文件夹chunk名
-	targetPath := "temp/" + fileName
+	var projectFileDto fileManager.RequestDto
+	projectFileDto.ProjectId = uint(projectId)
+	projectFileDto.ProjectEnvId = uint(projectEnvId)
+	projectFileDto.ProjectTypeId = uint(projectTypeId)
 	fileManagerService := service.NewFileManagerService()
-	err = fileManagerService.HandleMergeFile(chunkPath, targetPath)
+	err = fileManagerService.SetProjectPath(projectFileDto)
+	if err != nil {
+		G.Logger.Errorf("合并项目文件失败，具体原因:[%s]", err.Error())
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"success": false,
+			"msg":     err.Error(),
+			"result":  []string{},
+		})
+		return
+	}
+	fileExist := fileManagerService.CheckProjectIsDir(pathName)
+	if !fileExist {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": false,
+			"message": fmt.Sprintf("合并项目文件%s失败，文件或文件夹不存在", fileName),
+		})
+		return
+	}
+	tempUploadPath := fmt.Sprintf("%s/%s/.%s-chunk.upload", fileManagerService.CurrPath, pathName, fileHash)
+	// chunkPath := fmt.Sprintf("temp/%s/%s-chunk", fileHash, fileName) // 文件夹chunk名
+	tempSaveFile := fmt.Sprintf("%s/%s", tempUploadPath, fileName)
+	err = fileManagerService.HandleMergeFile(tempUploadPath, tempSaveFile)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
@@ -386,7 +448,7 @@ func MergeFileChunk(c *gin.Context) {
 		})
 		return
 	}
-	isHash, err := fileManagerService.CheckFileHash(targetPath, fileHash)
+	err = fileManagerService.CheckFileHash(tempSaveFile, fileHash)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
@@ -394,7 +456,31 @@ func MergeFileChunk(c *gin.Context) {
 		})
 		return
 	}
-	if !isHash {
+	// 校验文件无误后把文件移动到对应项目目录下，并删除临时上传目录
+	srcPath := tempSaveFile
+	targetPath := fmt.Sprintf("%s/%s/%s", fileManagerService.CurrPath, pathName, fileName)
+	err = os.MkdirAll(filepath.Dir(targetPath), os.ModePerm)
+	if err != nil {
+		G.Logger.Errorf("合并项目文件失败，具体原因：移动文件失败，" + err.Error())
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": fmt.Sprintf("合并文件%s失败", fileName),
+		})
+		return
+	}
+	err = os.Rename(srcPath, targetPath)
+	if err != nil {
+		G.Logger.Errorf("合并项目文件失败，具体原因：移动文件失败," + err.Error())
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": fmt.Sprintf("合并文件%s失败", fileName),
+		})
+		return
+	}
+	// 删除临时上传目录
+	err = os.RemoveAll(tempUploadPath)
+	if err != nil {
+		G.Logger.Errorf("合并项目文件失败，具体原因：移除临时上传目录失败," + err.Error())
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
 			"message": fmt.Sprintf("合并文件%s失败", fileName),
@@ -782,7 +868,7 @@ func AddFile(c *gin.Context) {
 	}
 	// 正则校验新建文件名称，必须是中文，大小写字母、数字和点汉字组成,[\p{L}\p{N}]表示匹配一个Unicode字母或数字
 	pattern := "^[a-zA-Z0-9\u4e00-\u9fa5.\\-._]+$"
-	matchFolder, err := regexp.MatchString(pattern, requestFileDto.AddFileName)
+	matchFolder, _ := regexp.MatchString(pattern, requestFileDto.AddFileName)
 	if !matchFolder {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    http.StatusOK,
@@ -812,7 +898,7 @@ func AddFile(c *gin.Context) {
 		return
 	}
 	// 校验新增的文件路径是否存在，如果存在则提示文件已存在，否则运行通过
-	dirIs, err := fileManagerService.CheckProjectIsFile(requestFileDto.PathName + "/" + requestFileDto.AddFileName)
+	dirIs, _ := fileManagerService.CheckProjectIsFile(requestFileDto.PathName + "/" + requestFileDto.AddFileName)
 	if dirIs {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    200,
@@ -860,7 +946,7 @@ func ReNameFile(c *gin.Context) {
 	}
 	// 正则校验重命名文件夹名称，必须是中文，大小写字母、数字和汉字组成,[\p{L}\p{N}]表示匹配一个Unicode字母或数字
 	pattern := "^[a-zA-Z0-9\u4e00-\u9fa5.\\-_]+$"
-	matchFolder, err := regexp.MatchString(pattern, requestFileDto.NewFileName)
+	matchFolder, _ := regexp.MatchString(pattern, requestFileDto.NewFileName)
 	if !matchFolder {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    http.StatusOK,
@@ -1097,14 +1183,14 @@ func CompressFileOrFolder(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    200,
 			"success": false,
-			"message": fmt.Sprintf("压缩文件或文件夹失败"),
+			"message": "压缩文件或文件夹失败",
 		})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"code":    200,
 		"success": true,
-		"message": fmt.Sprintf("压缩文件或文件夹成功"),
+		"message": "压缩文件或文件夹成功",
 	})
 }
 
@@ -1165,14 +1251,14 @@ func DecompressionFile(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    200,
 			"success": false,
-			"message": fmt.Sprintf("解压文件失败"),
+			"message": "解压文件失败",
 		})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"code":    200,
 		"success": true,
-		"message": fmt.Sprintf("解压文件成功"),
+		"message": "解压文件成功",
 	})
 }
 
