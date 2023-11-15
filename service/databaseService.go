@@ -142,7 +142,6 @@ func (o *DatabaseService) SingleExportTables(tempPath string, tableNames ...stri
 
 // DynamicExecSql 动态执行sql
 func (o *DatabaseService) DynamicExecSql(sql string, username string) (map[string]any, error) {
-
 	var dataMap = make(map[string]any, 1)
 	err := o.SetDbPrivilege(username)
 	if err != nil {
@@ -175,9 +174,9 @@ func (o *DatabaseService) DynamicExecSql(sql string, username string) (map[strin
 	var dataContentList []any
 	for i, result := range resultList {
 		var dataList []string
-		result = strings.ReplaceAll(result, "NULL", "")
+		// result = strings.ReplaceAll(result, "NULL", "")
 		strList := strings.Split(result, "\t")
-		// 说明是标题
+		// 说明是标题，标题为空字符串的不显示
 		if i == 0 {
 			dataMap["title"] = strList
 			continue

@@ -76,6 +76,7 @@ func ParseToken(tokenString string) (*MyClaims, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	MySecret = []byte(uuId)
 	token, err := jwt.ParseWithClaims(tokenString, &MyClaims{}, func(token *jwt.Token) (any, error) {
 		return MySecret, nil

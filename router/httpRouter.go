@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"hy.juck.com/go-publisher-server/config"
 	"hy.juck.com/go-publisher-server/middleware"
+	authRouter "hy.juck.com/go-publisher-server/router/auth"
 	database2 "hy.juck.com/go-publisher-server/router/database"
 	"hy.juck.com/go-publisher-server/router/fileManager"
 	"hy.juck.com/go-publisher-server/router/project"
@@ -117,6 +118,11 @@ func NewHttpRouter() {
 				fileManageGroup.POST("/compressFileOrFolder", fileManager.CompressFileOrFolder)
 				// 解压文件
 				fileManageGroup.POST("/decompressionFile", fileManager.DecompressionFile)
+			}
+			// ip认证
+			authIpGroup := authGroup.Group("/auth")
+			{
+				authIpGroup.POST("/receiveAuthIp", authRouter.ReceiveAuthIp)
 			}
 		}
 

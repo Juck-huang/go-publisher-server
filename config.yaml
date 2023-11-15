@@ -1,6 +1,6 @@
 
 server:
-  port: 8012
+  port: 8002
   path: /aps-web
 
 ops: # 运维中需要用到的中间件
@@ -8,26 +8,28 @@ ops: # 运维中需要用到的中间件
     # loginName:
       # writeName: write # 可写的登录名
       # readName: read # 可读的登录名
-    host: 127.0.0.1
+    host: 172.168.20.157
     port: 3306  # 数据库端口
     username: root
-    password: cj123456
+    password: cjxx2022
     backUpPath: /root/sql_bak/temp  # 当前服务器备份保存地址
     # backUpPath: /Users/mac/Downloads/sql_bak  # 本地备份保存地址
     ignoreDbs: ["information_schema", "sys", "performance_schema", "mysql", "aps"] # 需要忽略的表
 
 application: # 应用自身需要使用的中间件
   redis: # redis配置
-    host: 127.0.0.1
+    host: 172.168.20.157
     port: 6379
-    password: doss2020
+    password: Doss@2023..&&&
     db: 0
     keyExpire: 60 # key有效期，60秒
   mysql: # mysql配置
     host: 127.0.0.1
+    # host: 139.9.41.8
     port: 3306
     username: root
-    password: cj123456
+    password: Cjxx2023..&
+    # password: cj123456
     db: aps
 
 # zap日志
@@ -50,4 +52,4 @@ jwt: # jwt授权认证
 
 white: # 白名单控制
   status: true # 开启白名单模式
-  whiteIpList: ["127.0.0.1", "172.168.20.116", "localhost", "119.123.116.123"] # 白名单ip列表，暂时需要手动维护
+  whiteIpList: ["127.0.0.1", "localhost", "172.168.20.109", "119.123.116.123"] # 白名单ip列表，暂时需要手动维护

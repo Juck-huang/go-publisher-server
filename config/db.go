@@ -5,8 +5,10 @@ import (
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"hy.juck.com/go-publisher-server/model/auth"
 	databaseTable "hy.juck.com/go-publisher-server/model/database"
 	"hy.juck.com/go-publisher-server/model/project"
+	"hy.juck.com/go-publisher-server/model/server"
 	"hy.juck.com/go-publisher-server/model/user"
 )
 
@@ -49,6 +51,8 @@ func initMysql() {
 		&project.ProjectType{},
 		&project.ProjectEnv{},
 		&project.ProjectDir{},
+		&auth.AccessIpWhite{},
+		&server.ServerInfo{},
 	)
 	G.Logger.Infof("初始化数据库成功")
 }
