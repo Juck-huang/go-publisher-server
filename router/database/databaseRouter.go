@@ -73,8 +73,21 @@ func ExportTotal(c *gin.Context) {
 	}
 	switch totalDto.Type {
 	case 1:
-		// 为1则是备份数据库，先存到临时目录，再复制到备份目录下
+		// 为1则是备份数据库，先存到临时目录，压缩，再复制到备份目录下
 		// 备份路径=备份路径+数据库名称+年月日+备份的数据库文件
+		sqlFileName := totalDto.DbName + "-" + nowTime + ".sql"
+		zipFileName := totalDto.DbName + "-" + nowTime + ".zip"
+		zipTempFilePath := tempPathPrefix + "/" + zipFileName
+		// 压缩文件
+		err = databaseService.ZipFile(tempPathPrefix, sqlFileName, zipFileName)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"code":    200,
+				"success": false,
+				"message": err.Error(),
+			})
+			return
+		}
 		backPath := G.C.Ops.Mysql.BackUpPath + "/" + totalDto.DbName + "/" + time.Now().Format("20060102")
 		_, err = os.Stat(backPath)
 		if os.IsNotExist(err) {
@@ -88,7 +101,7 @@ func ExportTotal(c *gin.Context) {
 				return
 			}
 		}
-		err = databaseService.CopyFile(tempPath, backPath)
+		err = databaseService.CopyFile(zipTempFilePath, backPath)
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"code":    200,
