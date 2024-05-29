@@ -21,14 +21,14 @@ application: # 应用自身需要使用的中间件
     host: 172.168.20.157
     port: 6379
     password: Doss@2023..&&&
-    db: 0
+    db: 1
     keyExpire: 60 # key有效期，60秒
   mysql: # mysql配置
-    host: 127.0.0.1
+    host: 172.168.20.157
     # host: 139.9.41.8
-    port: 3306
+    port: 3307
     username: root
-    password: Cjxx2023..&
+    password: cjxx2022
     # password: cj123456
     db: aps
 
@@ -43,7 +43,7 @@ zap:
   level: info
 
 jwt: # jwt授权认证
-  whiteUrlList: ["/rest/fileManager/getProjectFile"] #接口访问白名单
+  whiteUrlList: ["/rest/fileManager/getProjectFile", "/rest/database/total/downloadExportFile"] #接口访问白名单
   token:
     expire: 36000 # token有效期,单位为秒
     secret: token授权 # 秘钥
@@ -52,4 +52,4 @@ jwt: # jwt授权认证
 
 white: # 白名单控制
   status: true # 开启白名单模式
-  whiteIpList: ["127.0.0.1", "localhost", "172.168.20.109", "119.123.116.123"] # 白名单ip列表，暂时需要手动维护
+  whiteIpList: ["127.0.0.1", "localhost", "172.168.20.146", "119.123.116.123"] # 白名单ip列表，暂时需要手动维护

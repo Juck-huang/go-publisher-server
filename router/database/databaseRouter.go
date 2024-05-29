@@ -1,6 +1,9 @@
 package database
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -10,7 +13,9 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"hy.juck.com/go-publisher-server/config"
 	"hy.juck.com/go-publisher-server/dto/database"
+	"hy.juck.com/go-publisher-server/middleware"
 	"hy.juck.com/go-publisher-server/service"
+	"hy.juck.com/go-publisher-server/utils"
 )
 
 var (
@@ -53,7 +58,6 @@ func ExportTotal(c *gin.Context) {
 	tempPathPrefix := "temp/" + uuidStr
 	tempPath := tempPathPrefix + "/" + totalDto.DbName + "-" + nowTime + ".sql"
 	err = os.MkdirAll(tempPathPrefix, os.ModePerm)
-	defer os.RemoveAll(tempPathPrefix)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    200,
@@ -62,19 +66,21 @@ func ExportTotal(c *gin.Context) {
 		})
 		return
 	}
-	err = databaseService.HandleTotalMysqlDump(tempPath, totalDto.IgnoreTables...)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"code":    200,
-			"success": false,
-			"message": err.Error(),
-		})
-		return
-	}
+
 	switch totalDto.Type {
 	case 1:
+		defer os.RemoveAll(tempPathPrefix)
 		// 为1则是备份数据库，先存到临时目录，压缩，再复制到备份目录下
 		// 备份路径=备份路径+数据库名称+年月日+备份的数据库文件
+		err = databaseService.HandleTotalMysqlDump(tempPath, totalDto.IgnoreTables...)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"code":    200,
+				"success": false,
+				"message": err.Error(),
+			})
+			return
+		}
 		sqlFileName := totalDto.DbName + "-" + nowTime + ".sql"
 		zipFileName := totalDto.DbName + "-" + nowTime + ".zip"
 		zipTempFilePath := tempPathPrefix + "/" + zipFileName
@@ -113,25 +119,52 @@ func ExportTotal(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    200,
 			"success": true,
-			"message": "备份数据库成功",
+			"message": "备份数据库" + totalDto.DbName + "成功",
 		})
 		return
 	case 2:
-		// 为1则是导出数据库，先存到临时目录，再从临时目录读取返回文件流
+		// 为2则是导出数据库，先存到临时目录，然后根据key格式为,total_export_${uuid}:{save_path:临时路径, expire: ${时间戳}, completed: false}存redis
+		// 定义一个get接口从redis中读取文件路径，completed为true返回文件流，内部全部导出完成不清除临时目录，使用定时任务，每半个小时执行清理expire超过1小时的对应的临时目录和redis数据
 		sqlFileName := totalDto.DbName + "-" + nowTime + ".sql"
 		zipFileName := totalDto.DbName + "-" + nowTime + ".zip"
 		zipTempFilePath := tempPathPrefix + "/" + zipFileName
-		// 压缩文件
-		err = databaseService.ZipFile(tempPathPrefix, sqlFileName, zipFileName)
-		if err != nil {
-			c.JSON(http.StatusOK, gin.H{
-				"code":    200,
-				"success": false,
-				"message": err.Error(),
-			})
-			return
-		}
-		c.FileAttachment(zipTempFilePath, zipFileName)
+		redisKey := fmt.Sprintf("total_export_%s", uuidStr)
+		G.RedisClient.HSet(redisKey, "save_path", zipTempFilePath)
+		G.RedisClient.HSet(redisKey, "create_time", time.Now().UnixMilli())
+		G.RedisClient.HSet(redisKey, "completed", false)
+		G.RedisClient.HSet(redisKey, "name", zipFileName)
+		go func() {
+			err = databaseService.HandleTotalMysqlDump(tempPath, totalDto.IgnoreTables...)
+			if err != nil {
+				c.JSON(http.StatusOK, gin.H{
+					"code":    200,
+					"success": false,
+					"message": err.Error(),
+				})
+				return
+			}
+
+			// 压缩文件
+			err = databaseService.ZipFile(tempPathPrefix, sqlFileName, zipFileName)
+			if err != nil {
+				c.JSON(http.StatusOK, gin.H{
+					"code":    200,
+					"success": false,
+					"message": err.Error(),
+				})
+				return
+			}
+			G.RedisClient.HSet(redisKey, "completed", true)
+		}()
+		// 返回redis key给前端去调用
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"success": true,
+			"message": "生成导出任务成功，稍后下载导出后的文件",
+			"result":  redisKey,
+		})
+		return
+		// c.FileAttachment(zipTempFilePath, zipFileName)
 	default:
 		c.JSON(http.StatusOK, gin.H{
 			"code":    200,
@@ -140,6 +173,143 @@ func ExportTotal(c *gin.Context) {
 		})
 		return
 	}
+}
+
+// 获取导出进度详情
+func GetExportDetail(c *gin.Context) {
+	// 获取post参数
+	body, err := ioutil.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"success": false,
+			"message": "参数解析错误",
+		})
+		return
+	}
+	var requestMap = make(map[string]any, 1)
+	json.Unmarshal(body, &requestMap)
+	redisKey := requestMap["key"]
+	if redisKey == nil || redisKey == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"success": false,
+			"message": "参数解析错误",
+		})
+		return
+	}
+	// 根据key从redis中获取对应状态数据和下载路径
+	redisDataMap, err := G.RedisClient.HGetAll(redisKey.(string)).Result()
+	if err != nil {
+		G.Logger.Errorf("获取导出进度详情失败:[%s]\n", err.Error())
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"success": false,
+			"message": "获取导出进度详情失败",
+		})
+		return
+	}
+	create_time := redisDataMap["create_time"]
+	if create_time == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"success": false,
+			"message": "未获取到相关导出进度详情",
+		})
+		return
+	}
+	var redisDataDto database.RedisDataDto
+	if redisDataMap["completed"] == "1" {
+		redisDataDto.Completed = true
+	}
+	redisDataDto.CreateTime = redisDataMap["create_time"]
+	c.JSON(http.StatusOK, gin.H{
+		"code":    http.StatusOK,
+		"success": true,
+		"message": "获取进度详情成功",
+		"result":  redisDataDto,
+	})
+}
+
+// 下载导出文件流
+func DownloadExportFile(c *gin.Context) {
+	var errInfo error
+	key := c.Query("key")
+	token := c.Query("token")
+	// 校验参数是否存在
+	if key == "" || token == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"code":    http.StatusUnauthorized,
+			"success": false,
+			"msg":     "参数缺失",
+		})
+		return
+	}
+	// 校验token正确性
+	claims, errInfo := utils.ParseToken(token)
+	if errInfo != nil {
+		G.Logger.Errorf("token解析错误或已经失效:[%s]", errInfo)
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"code":    http.StatusUnauthorized,
+			"message": "token解析错误或token已失效",
+			"success": false,
+			"result":  []string{},
+		})
+		c.Abort()
+		return
+	}
+	errInfo = middleware.CheckLogoutRedis(claims.Username, token)
+	if errInfo != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"code":    http.StatusUnauthorized,
+			"message": errInfo,
+			"success": false,
+			"result":  []string{},
+		})
+		c.Abort()
+		return
+	}
+
+	// 根据key从redis中获取下载路径
+	resultMap, errInfo := G.RedisClient.HGetAll(key).Result()
+	if errInfo != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"message": "获取到相关下载信息出错",
+			"success": false,
+			"result":  []string{},
+		})
+		return
+	}
+	if resultMap["create_time"] == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"message": "未获取到相关下载信息",
+			"success": false,
+			"result":  []string{},
+		})
+		return
+	}
+	downloadPath := resultMap["save_path"]
+	fileName := resultMap["name"]
+	// 如果已经导出完成则直接读取文件，否则提示正在处理中
+	completed := resultMap["completed"]
+	if completed == "1" {
+		G.Logger.Infof("读取下载文件路径:[%s],文件名:[%s]", downloadPath, fileName)
+		// 读取文件后直接返回流
+		c.Header("Content-Type", "application/octet-stream")
+		c.Header("Content-Disposition", "attachment; filename="+fileName)
+		c.Set("Content-Transfer-Encoding", "binary")
+		c.File(downloadPath)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    http.StatusOK,
+		"message": "系统正在处理中...",
+		"success": false,
+		"result":  []string{},
+	})
 }
 
 // SingleExport 单独导出

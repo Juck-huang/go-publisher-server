@@ -1,2 +1,0 @@
-#!/bin/bash
-nohup ./publisher >/dev/null 2>&1 &

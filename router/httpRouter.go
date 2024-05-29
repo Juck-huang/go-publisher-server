@@ -72,6 +72,10 @@ func NewHttpRouter() {
 			{
 				// 导出或备份整个数据库
 				databaseGroup.POST("/total/export", database2.ExportTotal)
+				// 获取导出进度详情
+				databaseGroup.POST("/total/getExportDetail", database2.GetExportDetail)
+				// 下载导出文件流
+				databaseGroup.GET("/total/downloadExportFile", database2.DownloadExportFile)
 				// 单独导出某几个表
 				databaseGroup.POST("/single/export", database2.SingleExport)
 				// 动态执行sql
@@ -97,7 +101,7 @@ func NewHttpRouter() {
 				// 合并切片文件成一个(上传文件切片后调用)
 				fileManageGroup.POST("/mergeFileChunk", fileManager.MergeFileChunk)
 				// 校验需要下载文件信息,校验成功再调用getProjectFile接口下载文件
-				fileManageGroup.POST("/checkDownloadFile", fileManager.CheckDownloadFile)
+				// fileManageGroup.POST("/checkDownloadFile", fileManager.CheckDownloadFile)
 				// 下载项目文件,包括项目文件夹，单独下载,get请求(调用浏览器下载)
 				fileManageGroup.GET("/getProjectFile", fileManager.GetProjectFile)
 				// 读取文件信息

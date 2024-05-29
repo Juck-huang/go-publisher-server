@@ -635,65 +635,65 @@ func GetProjectFile(c *gin.Context) {
 }
 
 // CheckDownloadFile 校验需要下载文件信息
-func CheckDownloadFile(c *gin.Context) {
-	var requestFileDto fileManager.RequestDto
-	err := c.ShouldBindJSON(&requestFileDto)
-	if err != nil {
-		G.Logger.Errorf("参数解析错误，具体原因:[%s]", err.Error())
-		c.JSON(http.StatusOK, gin.H{
-			"code":    http.StatusOK,
-			"success": false,
-			"msg":     "参数解析错误或参数缺失",
-		})
-		return
-	}
-	if requestFileDto.PathName == "" {
-		c.JSON(http.StatusOK, gin.H{
-			"code":    http.StatusOK,
-			"success": false,
-			"msg":     "项目文件路径不能为空",
-		})
-		return
-	}
-	fileManagerService := service.NewFileManagerService()
-	err = fileManagerService.SetProjectPath(requestFileDto)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"code":    200,
-			"success": false,
-			"message": fmt.Sprintf("项目路径%s不存在，%s", requestFileDto.PathName, err.Error()),
-		})
-		return
-	}
-	_, err = fileManagerService.CheckProjectIsFile(requestFileDto.PathName)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"code":    200,
-			"success": false,
-			"message": fmt.Sprintf("路径[%s]解析错误,错误原因：%s", requestFileDto.PathName, err.Error()),
-		})
-		return
-	}
-	filePath := fileManagerService.CurrPath + "/" + requestFileDto.PathName
-	fileInfo, err := os.Stat(filePath)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"code":    200,
-			"success": false,
-			"message": "解析项目路径失败",
-		})
-		return
-	}
+// func CheckDownloadFile(c *gin.Context) {
+// 	var requestFileDto fileManager.RequestDto
+// 	err := c.ShouldBindJSON(&requestFileDto)
+// 	if err != nil {
+// 		G.Logger.Errorf("参数解析错误，具体原因:[%s]", err.Error())
+// 		c.JSON(http.StatusOK, gin.H{
+// 			"code":    http.StatusOK,
+// 			"success": false,
+// 			"msg":     "参数解析错误或参数缺失",
+// 		})
+// 		return
+// 	}
+// 	if requestFileDto.PathName == "" {
+// 		c.JSON(http.StatusOK, gin.H{
+// 			"code":    http.StatusOK,
+// 			"success": false,
+// 			"msg":     "项目文件路径不能为空",
+// 		})
+// 		return
+// 	}
+// 	fileManagerService := service.NewFileManagerService()
+// 	err = fileManagerService.SetProjectPath(requestFileDto)
+// 	if err != nil {
+// 		c.JSON(http.StatusOK, gin.H{
+// 			"code":    200,
+// 			"success": false,
+// 			"message": fmt.Sprintf("项目路径%s不存在，%s", requestFileDto.PathName, err.Error()),
+// 		})
+// 		return
+// 	}
+// 	_, err = fileManagerService.CheckProjectIsFile(requestFileDto.PathName)
+// 	if err != nil {
+// 		c.JSON(http.StatusOK, gin.H{
+// 			"code":    200,
+// 			"success": false,
+// 			"message": fmt.Sprintf("路径[%s]解析错误,错误原因：%s", requestFileDto.PathName, err.Error()),
+// 		})
+// 		return
+// 	}
+// 	filePath := fileManagerService.CurrPath + "/" + requestFileDto.PathName
+// 	fileInfo, err := os.Stat(filePath)
+// 	if err != nil {
+// 		c.JSON(http.StatusOK, gin.H{
+// 			"code":    200,
+// 			"success": false,
+// 			"message": "解析项目路径失败",
+// 		})
+// 		return
+// 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "校验项目文件成功",
-		"result": map[string]any{
-			"pathName": requestFileDto.PathName,
-			"size":     fileInfo.Size(),
-		},
-	})
-}
+// 	c.JSON(http.StatusOK, gin.H{
+// 		"success": true,
+// 		"message": "校验项目文件成功",
+// 		"result": map[string]any{
+// 			"pathName": requestFileDto.PathName,
+// 			"size":     fileInfo.Size(),
+// 		},
+// 	})
+// }
 
 // RemoveFile 删除文件或文件夹
 func RemoveFile(c *gin.Context) {
