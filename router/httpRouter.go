@@ -6,11 +6,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"hy.juck.com/go-publisher-server/config"
 	"hy.juck.com/go-publisher-server/middleware"
+	"hy.juck.com/go-publisher-server/router/application"
 	authRouter "hy.juck.com/go-publisher-server/router/auth"
 	database2 "hy.juck.com/go-publisher-server/router/database"
 	"hy.juck.com/go-publisher-server/router/fileManager"
 	"hy.juck.com/go-publisher-server/router/project"
-	"hy.juck.com/go-publisher-server/router/publish"
 	"hy.juck.com/go-publisher-server/router/user"
 )
 
@@ -52,10 +52,14 @@ func NewHttpRouter() {
 				userGroup.POST("/updateLoginWhiteIp", user.UpdateLoginWhiteIp)
 			}
 			// 发布管理
-			publishGroup := authGroup.Group("/publish") // 发布组路由
+			publishGroup := authGroup.Group("/application") // 发布组路由
 			{
-				// 发布管理
-				publishGroup.POST("/release", publish.Release)
+				// 应用发布
+				publishGroup.POST("/publish", application.Release)
+				// 应用信息列表
+				publishGroup.POST("/manage/list", application.AppList)
+				// 开启应用
+				publishGroup.POST("/manage/startOrStopApp", application.StartOrStopApp)
 			}
 			// 项目管理
 			projectGroup := authGroup.Group("/project") // 项目组路由

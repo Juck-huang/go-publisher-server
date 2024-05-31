@@ -1,4 +1,4 @@
-package publish
+package application
 
 import (
 	"net/http"
